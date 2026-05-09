@@ -28,14 +28,14 @@ class DatabaseSeeder extends Seeder
             'name' => 'Bill Chen',
             'email' => 'superadm@mail.com',
             'password' => bcrypt('bc12345'),
-            'role' => 'manager', 
+            'role' => 'warehouse_manager', 
         ]);
 
         User::factory()->create([
             'name' => 'User1',
             'email' => 'user1@mail.com',
             'password' => bcrypt('12345'),
-            'role' => 'user', 
+            'role' => 'operator', 
         ]);
     }
 }
