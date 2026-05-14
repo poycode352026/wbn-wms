@@ -5,37 +5,30 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Super Admin',
-            'email' => 'superadmin@gmail.com',
-            'password' => bcrypt('6260305001'),
-            'role' => 'super_admin',
+        User::create([
+            'name'        => 'Super Admin',
+            'employee_id' => '6260305001',
+            'email'       => 'superadmin@wbn.co.id',
+            'password'    => Hash::make('password'),
+            'role'        => 'super_admin',
+            'is_active'   => true,
         ]);
 
-        User::factory()->create([
-            'name' => 'Bill Chen',
-            'email' => 'billchen@gmail.com',
-            'password' => bcrypt('bc12345'),
-            'role' => 'warehouse_manager', 
-        ]);
-
-        User::factory()->create([
-            'name' => 'User1',
-            'email' => 'user1@gmail.com',
-            'password' => bcrypt('12345'),
-            'role' => 'operator', 
+        User::create([
+            'name'        => 'Dea',
+            'employee_id' => '6260305002',
+            'email'       => 'dea@wbn.co.id',
+            'password'    => Hash::make('password'),
+            'role'        => 'admin_dept',
+            'is_active'   => true,
         ]);
     }
 }

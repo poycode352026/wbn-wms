@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
     Chart, LineElement, PointElement, LineController,
@@ -12,11 +12,18 @@ Chart.register(
 )
 
 
-const { t } = useI18n()
+const { t, locale, tm } = useI18n()
+
 const CHART_DATA = {
-    '7':  { labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], inn:[18,24,31,22,28,23,14], out:[12,18,20,25,18,15,9]  },
-    '30': { labels:['W1','W2','W3','W4'],                       inn:[142,168,155,188],       out:[110,134,142,156]      },
-    '90': { labels:['Mar','Apr','May'],                          inn:[612,738,805],           out:[504,612,668]          },
+    '7':  { inn:[18,24,31,22,28,23,14], out:[12,18,20,25,18,15,9]  },
+    '30': { inn:[142,168,155,188],       out:[110,134,142,156]      },
+    '90': { inn:[612,738,805],           out:[504,612,668]          },
+}
+
+function getChartLabels(range) {
+    if (range === '7')  return [...tm('chart.week')]
+    if (range === '30') return [...tm('chart.week30')]
+    return [...tm('chart.week90')]
 }
 
 const canvasRef  = ref(null)
@@ -53,7 +60,7 @@ function initChart() {
     chart = new Chart(canvasRef.value, {
         type: 'line',
         data: {
-            labels: [...d.labels],
+            labels: getChartLabels(activeRange.value),
             datasets: [
                 {
                     label: t('dash.grIn'),
@@ -87,7 +94,15 @@ function initChart() {
             animation: { duration: 600, easing: 'easeInOutQuart' },
             interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: false,
+                    labels: {
+                        generateLabels: () => [
+                            { text: t('dash.grIn'),  fillStyle: '#3b82f6', strokeStyle: '#3b82f6', lineWidth: 2, hidden: false, datasetIndex: 0 },
+                            { text: t('dash.giOut'), fillStyle: '#f97316', strokeStyle: '#f97316', lineWidth: 2, hidden: false, datasetIndex: 1 },
+                        ],
+                    },
+                },
                 tooltip: {
                     backgroundColor: c.tipBg,
                     titleColor:      c.tipFg,
@@ -98,6 +113,18 @@ function initChart() {
                     cornerRadius: 8,
                     boxWidth: 10,
                     boxHeight: 10,
+                    callbacks: {
+                        title: (items) => {
+                            const labels = getChartLabels(activeRange.value)
+                            return labels[items[0].dataIndex] ?? items[0].label
+                        },
+                        label: (item) => {
+                            const label = item.datasetIndex === 0
+                                ? t('dash.grIn')
+                                : t('dash.giOut')
+                            return ` ${label}: ${item.raw}`
+                        },
+                    },
                 },
             },
             scales: {
@@ -120,11 +147,17 @@ function switchRange(r) {
     activeRange.value = r
     if (!chart) return
     const d = CHART_DATA[r]
-    chart.data.labels           = [...d.labels]
-    chart.data.datasets[0].data = [...d.inn]
-    chart.data.datasets[1].data = [...d.out]
+    chart.data.labels            = getChartLabels(r)
+    chart.data.datasets[0].data  = [...d.inn]
+    chart.data.datasets[1].data  = [...d.out]
     chart.update({ duration: 600, easing: 'easeInOutQuart' })
 }
+
+watch(locale, async () => {
+    if (chart) { chart.destroy(); chart = null }
+    await nextTick()
+    initChart()
+})
 
 // Double nextTick: first tick lets AppLayout finish rendering its slot,
 // second tick ensures the browser has laid out the canvas dimensions.
@@ -154,7 +187,7 @@ onMounted(async () => {
             :class="{ active: activeRange === r }"
             @click="switchRange(r)"
             type="button"
-          >{{ { '7':'7 Days', '30':'30 Days', '90':'3 Months' }[r] }}</button>
+          >{{ { '7': t('dash.d7'), '30': t('dash.d30'), '90': t('dash.m3') }[r] }}</button>
         </div>
       </div>
     </div>

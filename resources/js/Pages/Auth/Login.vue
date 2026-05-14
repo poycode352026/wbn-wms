@@ -16,7 +16,7 @@ function switchLang(l) {
     localStorage.setItem('wbn_locale', l)
 }
 
-const form    = useForm({ email: '', password: '', remember: false })
+const form    = useForm({ employee_id: '', password: '', remember: false })
 const showPw  = ref(false)
 const shaking = ref(false)
 
@@ -300,11 +300,11 @@ function submit() {
             <form @submit.prevent="submit" novalidate>
               <div>
                 <label class="field-label" for="emp-id">{{t('auth.empId') }}</label>
-                <div class="field" :class="{ 'field-error': form.errors.email }">
+                <div class="field" :class="{ 'field-error': form.errors.employee_id }">
                   <span class="lead-icon">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><circle cx="9" cy="12" r="2.2"/><path d="M14 11h4M14 14h3"/></svg>
                   </span>
-                  <input id="emp-id" v-model="form.email" type="text" autocomplete="username" spellcheck="false" :placeholder="t('auth.empIdPh')" required/>
+                  <input id="emp-id" v-model="form.employee_id" type="text" autocomplete="username" spellcheck="false" :placeholder="t('auth.empIdPh')" required/>
                 </div>
               </div>
               <div>
@@ -335,7 +335,7 @@ function submit() {
                   <svg v-if="!form.processing" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
                 </span>
               </button>
-              <div v-if="form.errors.email||form.errors.password" class="error show" role="alert">
+              <div v-if="form.errors.employee_id||form.errors.password" class="error show" role="alert">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
                 <span>{{t('auth.error') }}</span>
               </div>
