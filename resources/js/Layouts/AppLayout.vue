@@ -62,7 +62,7 @@ const dateStr = computed(() => {
 function logout() { router.post(route('logout')) }
 </script>
 <template>
-<div class="wms-app" :data-theme="isDark ? 'dark' : 'light'">
+<div class="wms-app">
 
   <!-- ── SIDEBAR ──────────────────────────────────────────────────────── -->
   <aside class="wms-sidebar" :class="{ collapsed, 'mobile-open': mobileOpen }">
@@ -118,7 +118,7 @@ function logout() { router.post(route('logout')) }
 
       <div class="nav-section">
         <div class="nav-section-label">{{ $t('sec.inventory') }}</div>
-        <a class="nav-item" href="#" :data-tip="$t('menu.itemMaster')">
+        <a class="nav-item" :class="{ active: route().current('items.*') }" :href="route('items.index')" :data-tip="$t('menu.itemMaster')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8L12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
           <span class="lbl">{{ $t('menu.itemMaster') }}</span>
         </a>
@@ -263,7 +263,7 @@ function logout() { router.post(route('logout')) }
 </template>
 <style>
 /* ── CSS variables ──────────────────────────────────────────────────── */
-.wms-app {
+:root {
   --blue-900:#1e3a8a;--blue-700:#1d4ed8;--blue-500:#3b82f6;--blue-400:#60a5fa;
   --orange-500:#f97316;--orange-400:#fb923c;--amber-500:#f59e0b;--amber-400:#fbbf24;
   --emerald:#10b981;--rose:#ef4444;--yellow:#eab308;
@@ -276,14 +276,8 @@ function logout() { router.post(route('logout')) }
   --shadow-md:0 6px 18px -8px rgba(0,0,0,.6);
   --shadow-lg:0 18px 40px -16px rgba(0,0,0,.6);
   --logo-bg:#ffffff;
-
-  display:flex;min-height:100vh;
-  font-family:'Inter',system-ui,-apple-system,sans-serif;
-  -webkit-font-smoothing:antialiased;
-  background:var(--bg);color:var(--fg);
-  transition:background 250ms ease,color 250ms ease;
 }
-.wms-app[data-theme="light"] {
+:root[data-theme="light"] {
   --bg:#f9fafb;--surface:#ffffff;--surface-2:#f9fafb;--surface-3:#ffffff;
   --border:#e5e7eb;--border-2:#d1d5db;--border-soft:#f1f5f9;
   --fg:#0b1530;--fg-2:#475569;--fg-dim:#94a3b8;
@@ -292,6 +286,13 @@ function logout() { router.post(route('logout')) }
   --shadow-md:0 6px 18px -8px rgba(15,23,42,.12);
   --shadow-lg:0 18px 40px -16px rgba(15,23,42,.18);
   --logo-bg:#f3f4f6;
+}
+.wms-app {
+  display:flex;min-height:100vh;
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background:var(--bg);color:var(--fg);
+  transition:background 250ms ease,color 250ms ease;
 }
 
 /* ── scrollbar ─────────────────────────────────────────────────────── */
@@ -367,7 +368,7 @@ function logout() { router.post(route('logout')) }
   color:var(--fg-2);padding:2px 6px;border-radius:4px;
   border:1px solid var(--border-2);letter-spacing:.04em;
 }
-.wms-sidebar.collapsed .lbl,.wms-sidebar.collapsed .lbl-badge{opacity:0;max-width:0;overflow:hidden}
+.wms-sidebar.collapsed .lbl,.wms-sidebar.collapsed .lbl-badge{opacity:0;width:0;max-width:0;overflow:hidden;padding:0;border-width:0;margin:0}
 .wms-sidebar.collapsed .nav-item{padding:10px 0;justify-content:center;gap:0}
 .nav-item.active{color:var(--orange-500);background:var(--active-bg);font-weight:600}
 .nav-item.active::before{
@@ -468,7 +469,7 @@ function logout() { router.post(route('logout')) }
   box-shadow:0 2px 6px rgba(0,0,0,.25);
   transition:transform 320ms cubic-bezier(.5,1.4,.4,1),background 320ms ease;
 }
-.wms-app[data-theme="light"] .theme-toggle::before{
+:root[data-theme="light"] .theme-toggle::before{
   transform:translateX(22px);
   background:linear-gradient(180deg,var(--amber-400),var(--orange-500));
 }

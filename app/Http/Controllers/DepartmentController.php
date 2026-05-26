@@ -52,6 +52,7 @@ class DepartmentController extends Controller
                 'users'    => User::count(),
             ],
             'allUsers' => User::where('is_active', true)
+                ->where('role', 'user')
                 ->orderBy('name')
                 ->get(['id', 'name', 'employee_id', 'department_id', 'role']),
         ]);
