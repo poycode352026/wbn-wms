@@ -21,4 +21,9 @@ class Department extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    public function admins(): HasMany
+    {
+        return $this->hasMany(User::class)->whereIn('role', ['admin_dept', 'manager_dept']);
+    }
 }

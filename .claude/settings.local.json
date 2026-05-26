@@ -5,7 +5,13 @@
       "PowerShell(php --version)",
       "PowerShell(composer --version)",
       "PowerShell(node --version)",
-      "PowerShell(npm --version)"
+      "PowerShell(npm --version)",
+      "Bash(C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe artisan *)",
+      "PowerShell(C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.4.3-winx64\\\\bin\\\\mysql.exe -u root -e \"SELECT 1;\" 2>&1)",
+      "PowerShell(Start-Process -FilePath \"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.4.3-winx64\\\\bin\\\\mysqld.exe\" -ArgumentList \"--defaults-file=C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.4.3-winx64\\\\my.ini\" -WindowStyle Hidden)",
+      "PowerShell(Get-Process -Name \"mysqld\" -ErrorAction SilentlyContinue)",
+      "PowerShell(C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.4.3-winx64\\\\bin\\\\mysql.exe -u root wbn_wms -e \"SELECT id, name, employee_id, email, role, is_active FROM users;\" 2>&1)",
+      "PowerShell(C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.4.3-winx64\\\\bin\\\\mysql.exe -u root wbn_wms -e \"SELECT id, name, employee_id, email, role, is_active, email_verified_at FROM users;\" 2>&1)"
     ]
   }
 }

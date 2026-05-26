@@ -20,7 +20,7 @@ class UserStoreRequest extends FormRequest
             'employee_id'   => ['required', 'string', 'max:50', 'unique:users,employee_id'],
             'email'         => ['nullable', 'email', 'max:100', 'unique:users,email'],
             'password'      => ['required', Password::min(6)],
-            'role'          => ['required', Rule::in(['super_admin', 'admin_dept', 'manager_dept', 'warehouse_manager', 'supervisor', 'operator'])],
+            'role'          => ['required', Rule::in(['super_admin', 'wh_admin', 'warehouse_manager', 'supervisor', 'operator', 'user'])],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'is_active'     => ['boolean'],
         ];

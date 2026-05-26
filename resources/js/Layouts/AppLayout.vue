@@ -94,19 +94,23 @@ function logout() { router.post(route('logout')) }
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="lbl">{{ $t('menu.users') }}</span>
         </a>
-        <a class="nav-item" href="#" :data-tip="$t('menu.departments')">
+        <a class="nav-item" :class="{ active: route().current('departments.*') }" :href="route('departments.index')" :data-tip="$t('menu.departments')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 12h.01M9 15h.01M9 18h.01M14 9h.01M14 12h.01M14 15h.01M14 18h.01"/></svg>
           <span class="lbl">{{ $t('menu.departments') }}</span>
+        </a>
+        <a class="nav-item" :class="{ active: route().current('permissions.*') }" :href="route('permissions.index')" :data-tip="$t('menu.permissions')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <span class="lbl">{{ $t('menu.permissions') }}</span>
         </a>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-label">{{ $t('sec.warehouse') }}</div>
-        <a class="nav-item" href="#" :data-tip="$t('menu.warehouses')">
+        <a class="nav-item" :class="{ active: route().current('warehouses.*') }" :href="route('warehouses.index')" :data-tip="$t('menu.warehouses')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21V12h6v9"/></svg>
           <span class="lbl">{{ $t('menu.warehouses') }}</span>
         </a>
-        <a class="nav-item" href="#" :data-tip="$t('menu.rackManagement')">
+        <a class="nav-item" :class="{ active: route().current('locations.*') }" :href="route('locations.index')" :data-tip="$t('menu.rackManagement')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="11" width="18" height="6" rx="1.5"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
           <span class="lbl">{{ $t('menu.rackManagement') }}</span>
         </a>
@@ -337,8 +341,8 @@ function logout() { router.post(route('logout')) }
 .sb-toggle:hover{color:var(--fg);background:var(--hover)}
 .sb-toggle svg{width:14px;height:14px;transition:transform 250ms ease}
 .wms-sidebar.collapsed .sb-toggle svg{transform:rotate(180deg)}
-.wms-sidebar.collapsed .brand-text,.wms-sidebar.collapsed .wms-badge{display:none}
-.wms-sidebar.collapsed .sb-top{padding:12px 8px}
+.wms-sidebar.collapsed .brand-text,.wms-sidebar.collapsed .wms-badge,.wms-sidebar.collapsed .brand-logo{display:none}
+.wms-sidebar.collapsed .sb-top{padding:8px;height:48px;justify-content:center}
 
 .sb-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 10px}
 .nav-section{margin-bottom:16px}
@@ -364,7 +368,7 @@ function logout() { router.post(route('logout')) }
   border:1px solid var(--border-2);letter-spacing:.04em;
 }
 .wms-sidebar.collapsed .lbl,.wms-sidebar.collapsed .lbl-badge{opacity:0;max-width:0;overflow:hidden}
-.wms-sidebar.collapsed .nav-item{padding:10px 0;justify-content:center}
+.wms-sidebar.collapsed .nav-item{padding:10px 0;justify-content:center;gap:0}
 .nav-item.active{color:var(--orange-500);background:var(--active-bg);font-weight:600}
 .nav-item.active::before{
   content:"";position:absolute;left:-10px;top:6px;bottom:6px;

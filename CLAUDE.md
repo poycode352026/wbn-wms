@@ -96,7 +96,7 @@ Status lengkap & user stories → lihat `PRD.md`
 ## Environment
 ```env
 APP_NAME="WBN WMS"
-APP_URL=http://wbn-wms.test
+APP_URL=http://wbn-wms
 DB_DATABASE=wbn_wms
 DB_USERNAME=root
 DB_PASSWORD=

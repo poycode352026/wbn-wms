@@ -3,32 +3,56 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\Employee;
+use App\Models\Department;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     public function run(): void
     {
-        User::create([
-            'name'        => 'Super Admin',
-            'employee_id' => '6260305001',
-            'email'       => 'superadmin@wbn.co.id',
-            'password'    => Hash::make('password'),
-            'role'        => 'super_admin',
-            'is_active'   => true,
+        $department = Department::create([
+            'code' => 'IT',
+            'name' => 'Information Technology',
+        ]);
+
+        Employee::create([
+            'employee_id'   => '6260305001',
+            'name'          => 'Super Admin',
+            'department_id' => $department->id,
+            'position'      => 'Super Admin',
+            'is_active'     => true,
+        ]);
+
+        Employee::create([
+            'employee_id'   => '6260305002',
+            'name'          => 'Dea',
+            'department_id' => $department->id,
+            'position'      => 'Admin Dept',
+            'is_active'     => true,
         ]);
 
         User::create([
-            'name'        => 'Dea',
-            'employee_id' => '6260305002',
-            'email'       => 'dea@wbn.co.id',
-            'password'    => Hash::make('password'),
-            'role'        => 'admin_dept',
-            'is_active'   => true,
+            'employee_id'        => '6260305001',
+            'name'               => 'Super Admin',
+            'email'              => 'superadmin@wbn.co.id',
+            'email_verified_at'  => now(),
+            'password'           => Hash::make('password'),
+            'role'               => 'super_admin',
+            'is_active'          => true,
+            'department_id'      => $department->id,
+        ]);
+
+        User::create([
+            'employee_id'        => '6260305002',
+            'name'               => 'Dea',
+            'email'              => 'dea@wbn.co.id',
+            'email_verified_at'  => now(),
+            'password'           => Hash::make('password'),
+            'role'               => 'admin_dept',
+            'is_active'          => true,
+            'department_id'      => $department->id,
         ]);
     }
 }

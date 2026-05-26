@@ -11,20 +11,28 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->enum('role', [
                 'super_admin',
+                'wh_admin',
                 'admin_dept',
                 'manager_dept',
                 'warehouse_manager',
                 'supervisor',
                 'operator',
-            ])->default('operator')->after('email');
-            $table->boolean('is_active')->default(true)->after('role');
+                'user',
+            ])->default('user')->change();
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['role', 'is_active']);
+            $table->enum('role', [
+                'super_admin',
+                'admin_dept',
+                'manager_dept',
+                'warehouse_manager',
+                'supervisor',
+                'operator',
+            ])->default('operator')->change();
         });
     }
 };
