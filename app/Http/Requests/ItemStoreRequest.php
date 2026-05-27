@@ -15,7 +15,6 @@ class ItemStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'warehouse_id'       => ['required', 'exists:warehouses,id'],
             'category_id'        => ['required', 'exists:item_categories,id'],
             'part_number'        => ['required', 'string', 'max:100', 'unique:items,part_number'],
             'name_en'            => ['required', 'string', 'max:200'],

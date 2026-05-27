@@ -25,7 +25,6 @@ class ItemController extends Controller
         $items = Item::query()
             ->with([
                 'category:id,code,prefix,name_id,name_en,name_zh',
-                'warehouse:id,code,name',
                 'variants' => fn ($q) => $q->orderBy('id'),
             ])
             ->when($request->search, fn ($q, $s) =>
@@ -35,9 +34,6 @@ class ItemController extends Controller
                        ->orWhere('name_id', 'like', "%{$s}%")
                        ->orWhere('name_zh', 'like', "%{$s}%")
                 ))
-            ->when($request->warehouse_id, fn ($q) =>
-                $q->where('warehouse_id', $request->warehouse_id)
-            )
             ->when($request->category_id, fn ($q) =>
                 $q->where('category_id', $request->category_id)
             )
@@ -69,11 +65,6 @@ class ItemController extends Controller
                     'name_id' => $i->category->name_id,
                     'name_en' => $i->category->name_en,
                     'name_zh' => $i->category->name_zh,
-                ] : null,
-                'warehouse' => $i->warehouse ? [
-                    'id'   => $i->warehouse->id,
-                    'code' => $i->warehouse->code,
-                    'name' => $i->warehouse->name,
                 ] : null,
                 'photo_required' => $i->photo_required,
                 'variants' => $i->variants->map(fn ($v) => [
@@ -115,7 +106,7 @@ class ItemController extends Controller
             'categories' => $categories,
             'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'filters'    => $request->only([
-                'search', 'warehouse_id', 'category_id', 'status',
+                'search', 'category_id', 'status',
                 'sort', 'dir', 'cat_search', 'tab',
             ]),
             'stats' => [

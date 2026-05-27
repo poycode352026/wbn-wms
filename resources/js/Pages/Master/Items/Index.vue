@@ -27,26 +27,24 @@ function catName(cat) {
 
 // ── Filters ───────────────────────────────────────────────────────────────
 const search     = ref(props.filters.search ?? '')
-const whFilter   = ref(props.filters.warehouse_id ?? '')
 const catFilter  = ref(props.filters.category_id ?? '')
 const statusFilt = ref(props.filters.status ?? '')
 const catSearch  = ref(props.filters.cat_search ?? '')
 
 function applyFilter() {
     router.get(route('items.index'), {
-        search:       search.value || undefined,
-        warehouse_id: whFilter.value || undefined,
-        category_id:  catFilter.value || undefined,
-        status:       statusFilt.value || undefined,
-        cat_search:   catSearch.value || undefined,
-        tab:          activeTab.value !== 'items' ? activeTab.value : undefined,
+        search:      search.value || undefined,
+        category_id: catFilter.value || undefined,
+        status:      statusFilt.value || undefined,
+        cat_search:  catSearch.value || undefined,
+        tab:         activeTab.value !== 'items' ? activeTab.value : undefined,
     }, { preserveState: true, replace: true })
 }
 
 let searchTimer
 watch(search,    () => { clearTimeout(searchTimer); searchTimer = setTimeout(applyFilter, 400) })
 watch(catSearch, () => { clearTimeout(searchTimer); searchTimer = setTimeout(applyFilter, 400) })
-watch([whFilter, catFilter, statusFilt], applyFilter)
+watch([catFilter, statusFilt], applyFilter)
 
 // ── Category options for filter bar (items tab) ───────────────────────────
 const filteredCatOptions = computed(() =>
@@ -63,7 +61,6 @@ const nameTab       = ref('en')
 const partSuffix    = ref('')
 
 const form = useForm({
-    warehouse_id:       '',
     category_id:        '',
     part_number:        '',
     name_en:            '',
@@ -107,9 +104,10 @@ function openAdd() {
     showItemModal.value    = true
 }
 
+
+
 function openEdit(item) {
     editingItem.value       = item
-    form.warehouse_id       = item.warehouse?.id ?? ''
     form.category_id        = item.category?.id ?? ''
     form.part_number        = item.part_number
     form.name_en            = item.name_en
@@ -358,10 +356,6 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
       <div class="filter-bar">
         <input class="form-input" style="flex:1;min-width:220px"
           v-model="search" :placeholder="$t('im.search')" />
-        <select class="form-select" style="width:160px" v-model="whFilter">
-          <option value="">{{ $t('im.filterWh') }}</option>
-          <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.code }} · {{ w.name }}</option>
-        </select>
         <select class="form-select" style="width:180px" v-model="catFilter">
           <option value="">{{ $t('im.filterCat') }}</option>
           <option v-for="c in filteredCatOptions" :key="c.id" :value="c.id">{{ c.code }} · {{ catName(c) }}</option>
@@ -402,7 +396,6 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
               </td>
               <td style="max-width:220px">
                 <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ itemName(item) }}</div>
-                <div v-if="item.warehouse" style="font-size:11px;opacity:.45;margin-top:1px">{{ item.warehouse.code }}</div>
               </td>
               <td>
                 <span v-if="item.category"
@@ -551,23 +544,13 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
         </div>
         <form @submit.prevent="submitItem" class="modal-body">
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="form-group">
-              <label class="form-label">{{ $t('im.warehouse') }} <span class="req">*</span></label>
-              <select class="form-select" v-model="form.warehouse_id" required>
-                <option value="">— Select —</option>
-                <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.code }} · {{ w.name }}</option>
-              </select>
-              <div v-if="form.errors.warehouse_id" class="form-err">{{ form.errors.warehouse_id }}</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">{{ $t('im.category') }} <span class="req">*</span></label>
-              <select class="form-select" v-model="form.category_id" required>
-                <option value="">— Select —</option>
-                <option v-for="c in formCatOptions" :key="c.id" :value="c.id">{{ c.code }} · {{ catName(c) }}</option>
-              </select>
-              <div v-if="form.errors.category_id" class="form-err">{{ form.errors.category_id }}</div>
-            </div>
+          <div class="form-group">
+            <label class="form-label">{{ $t('im.category') }} <span class="req">*</span></label>
+            <select class="form-select" v-model="form.category_id" required>
+              <option value="">— Select —</option>
+              <option v-for="c in formCatOptions" :key="c.id" :value="c.id">{{ c.code }} · {{ catName(c) }}</option>
+            </select>
+            <div v-if="form.errors.category_id" class="form-err">{{ form.errors.category_id }}</div>
           </div>
 
           <div class="form-group">

@@ -16,7 +16,6 @@ class ItemUpdateRequest extends FormRequest
     {
         $item = $this->route('item');
         return [
-            'warehouse_id'       => ['required', 'exists:warehouses,id'],
             'category_id'        => ['required', 'exists:item_categories,id'],
             'part_number'        => ['required', 'string', 'max:100', Rule::unique('items', 'part_number')->ignore($item)],
             'name_en'            => ['required', 'string', 'max:200'],

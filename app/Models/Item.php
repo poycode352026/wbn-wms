@@ -12,7 +12,7 @@ class Item extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'warehouse_id', 'category_id', 'part_number',
+        'category_id', 'part_number',
         'name_id', 'name_en', 'name_zh', 'description',
         'base_uom', 'alt_uom', 'alt_uom_conversion',
         'minimum_stock', 'has_cooldown', 'cooldown_days', 'cooldown_track_by',
@@ -26,11 +26,6 @@ class Item extends Model
         'alt_uom_conversion' => 'decimal:4',
         'minimum_stock'      => 'decimal:2',
     ];
-
-    public function warehouse(): BelongsTo
-    {
-        return $this->belongsTo(Warehouse::class);
-    }
 
     public function category(): BelongsTo
     {

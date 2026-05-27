@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::create('items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
             $table->foreignId('category_id')->constrained('item_categories')->cascadeOnDelete();
             $table->string('part_number', 100)->unique();
             $table->string('name_id', 255);
