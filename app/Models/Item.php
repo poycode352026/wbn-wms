@@ -16,12 +16,13 @@ class Item extends Model
         'name_id', 'name_en', 'name_zh', 'description',
         'base_uom', 'alt_uom', 'alt_uom_conversion',
         'minimum_stock', 'has_cooldown', 'cooldown_days', 'cooldown_track_by',
-        'is_active',
+        'photo_required', 'is_active',
     ];
 
     protected $casts = [
         'is_active'          => 'boolean',
         'has_cooldown'       => 'boolean',
+        'photo_required'     => 'boolean',
         'alt_uom_conversion' => 'decimal:4',
         'minimum_stock'      => 'decimal:2',
     ];

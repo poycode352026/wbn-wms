@@ -87,6 +87,7 @@ const form = useForm({
     has_cooldown:       false,
     cooldown_days:      '',
     cooldown_track_by:  'employee_id',
+    photo_required:     false,
     is_active:          true,
 })
 
@@ -104,6 +105,7 @@ function openAdd() {
     form.is_active         = true
     form.minimum_stock     = 0
     form.has_cooldown      = false
+    form.photo_required    = false
     form.cooldown_track_by = 'employee_id'
     nameTab.value          = 'en'
     showItemModal.value    = true
@@ -125,6 +127,7 @@ function openEdit(item) {
     form.has_cooldown       = item.has_cooldown
     form.cooldown_days      = item.cooldown_days ?? ''
     form.cooldown_track_by  = item.cooldown_track_by ?? 'employee_id'
+    form.photo_required     = item.photo_required
     form.is_active          = item.is_active
     nameTab.value           = 'en'
     showItemModal.value     = true
@@ -206,7 +209,7 @@ const varForm = useForm({
     model:     '',
     size:      '',
     color:     '',
-    sku:       '',
+    photo:     null,
     is_active: true,
 })
 
@@ -222,6 +225,7 @@ function openVariants(item) {
     editingVariant.value = null
     varForm.reset()
     varForm.is_active    = true
+    photoPreview.value   = null
     showVarModal.value   = true
 }
 
@@ -231,26 +235,27 @@ function editVariant(v) {
     varForm.model        = v.model ?? ''
     varForm.size         = v.size  ?? ''
     varForm.color        = v.color ?? ''
-    varForm.sku          = v.sku   ?? ''
+    varForm.photo        = null
     varForm.is_active    = v.is_active
 }
 
 function cancelEditVar() {
     editingVariant.value = null
     varForm.reset()
-    varForm.is_active = true
+    varForm.is_active  = true
+    photoPreview.value = null
 }
 
 function submitVariant() {
+    const opts = (cb) => ({ forceFormData: true, onSuccess: cb })
     if (editingVariant.value) {
-        varForm.patch(route('items.updateVariant', {
+        varForm.post(route('items.updateVariant', {
             item: variantItem.value.id,
             itemVariant: editingVariant.value.id,
-        }), { onSuccess: () => { editingVariant.value = null; varForm.reset(); varForm.is_active = true } })
+        }), opts(() => { editingVariant.value = null; varForm.reset(); varForm.is_active = true }))
     } else {
-        varForm.post(route('items.storeVariant', variantItem.value.id), {
-            onSuccess: () => { varForm.reset(); varForm.is_active = true }
-        })
+        varForm.post(route('items.storeVariant', variantItem.value.id),
+            opts(() => { varForm.reset(); varForm.is_active = true; photoPreview.value = null }))
     }
 }
 
@@ -282,6 +287,9 @@ function closeDrop() { openDropId.value = null }
 
 onMounted(() => document.addEventListener('click', closeDrop))
 onUnmounted(() => document.removeEventListener('click', closeDrop))
+
+// ── Photo preview ─────────────────────────────────────────────────────────
+const photoPreview = ref(null)
 
 // ── Badge colors ──────────────────────────────────────────────────────────
 const BADGE_COLORS = [
@@ -635,14 +643,23 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
             </div>
           </div>
 
-          <!-- Cooldown -->
-          <div class="form-group">
-            <label class="toggle-row" style="margin-bottom:8px">
+          <!-- Photo Required + Cooldown toggles -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <label class="toggle-row">
+              <input type="checkbox" v-model="form.photo_required" style="display:none" />
+              <div class="toggle-track" :class="{ on: form.photo_required }"><div class="toggle-thumb"></div></div>
+              <span class="form-label" style="margin:0">Photo Required</span>
+            </label>
+            <label class="toggle-row">
               <input type="checkbox" v-model="form.has_cooldown" style="display:none" />
               <div class="toggle-track" :class="{ on: form.has_cooldown }"><div class="toggle-thumb"></div></div>
               <span class="form-label" style="margin:0">{{ $t('im.hasCooldown') }}</span>
             </label>
-            <div v-if="form.has_cooldown" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          </div>
+
+          <!-- Cooldown detail -->
+          <div v-if="form.has_cooldown" class="form-group">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <div class="form-group" style="margin:0">
                 <label class="form-label">{{ $t('im.cooldownDays') }}</label>
                 <input class="form-input" v-model="form.cooldown_days" type="number" min="1" />
@@ -748,13 +765,19 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
             </div>
             <div v-for="v in variantItem?.variants" :key="v.id"
               style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;margin-bottom:4px;background:var(--surface-2)">
-              <div style="flex:1;display:flex;flex-wrap:wrap;gap:6px;font-size:12px">
-                <span v-if="v.brand"><span style="opacity:.45">{{ $t('im.brand') }}:</span> {{ v.brand }}</span>
-                <span v-if="v.model"><span style="opacity:.45">{{ $t('im.model') }}:</span> {{ v.model }}</span>
-                <span v-if="v.size"><span style="opacity:.45">{{ $t('im.size') }}:</span> {{ v.size }}</span>
-                <span v-if="v.color"><span style="opacity:.45">{{ $t('im.color') }}:</span> {{ v.color }}</span>
-                <span v-if="v.sku" style="font-family:monospace;opacity:.65">SKU: {{ v.sku }}</span>
-                <span v-if="!v.brand && !v.model && !v.size && !v.color && !v.sku" style="opacity:.35">—</span>
+              <img v-if="v.photo_path" :src="v.photo_path" class="var-thumb" alt="photo" />
+              <div v-else class="var-thumb-ph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-family:monospace;font-size:11px;font-weight:700;opacity:.65;margin-bottom:3px">{{ v.sku }}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px">
+                  <span v-if="v.brand"><span style="opacity:.45">{{ $t('im.brand') }}:</span> {{ v.brand }}</span>
+                  <span v-if="v.model"><span style="opacity:.45">{{ $t('im.model') }}:</span> {{ v.model }}</span>
+                  <span v-if="v.size"><span style="opacity:.45">{{ $t('im.size') }}:</span> {{ v.size }}</span>
+                  <span v-if="v.color"><span style="opacity:.45">{{ $t('im.color') }}:</span> {{ v.color }}</span>
+                  <span v-if="!v.brand && !v.model && !v.size && !v.color" style="opacity:.35">—</span>
+                </div>
               </div>
               <span :style="{
                 background: v.is_active ? 'rgba(16,185,129,.12)' : 'rgba(100,116,139,.1)',
@@ -794,12 +817,30 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
                   <input class="form-input" v-model="varForm.color" />
                 </div>
               </div>
+
+              <!-- Photo upload -->
               <div class="form-group">
-                <label class="form-label">{{ $t('im.sku') }}</label>
-                <input class="form-input" style="font-family:monospace;text-transform:uppercase"
-                  v-model="varForm.sku" />
-                <div v-if="varForm.errors.sku" class="form-err">{{ varForm.errors.sku }}</div>
+                <label class="form-label">
+                  Photo
+                  <span v-if="variantItem?.photo_required" class="req"> * (required)</span>
+                  <span v-else style="opacity:.4;font-weight:400"> (optional)</span>
+                </label>
+                <div class="photo-upload-row">
+                  <img v-if="editingVariant?.photo_path && !varForm.photo"
+                    :src="editingVariant.photo_path" class="photo-thumb" alt="current photo" />
+                  <div v-else-if="!editingVariant?.photo_path && !varForm.photo" class="photo-placeholder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  </div>
+                  <img v-else-if="varForm.photo" :src="photoPreview" class="photo-thumb" alt="preview" />
+                  <label class="btn-upload">
+                    <input type="file" accept="image/*" style="display:none"
+                      @change="e => { varForm.photo = e.target.files[0]; photoPreview = URL.createObjectURL(e.target.files[0]) }" />
+                    {{ varForm.photo ? 'Change' : (editingVariant?.photo_path ? 'Replace' : 'Upload') }}
+                  </label>
+                </div>
+                <div v-if="varForm.errors.photo" class="form-err">{{ varForm.errors.photo }}</div>
               </div>
+
               <label class="toggle-row" style="margin-bottom:12px">
                 <input type="checkbox" v-model="varForm.is_active" style="display:none" />
                 <div class="toggle-track green" :class="{ on: varForm.is_active }"><div class="toggle-thumb"></div></div>
@@ -965,6 +1006,27 @@ textarea.form-input { resize: vertical; }
 
 .req { color: #f87171; }
 .pager-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; opacity: .7; }
+
+/* ── photo upload ────────────────────────────────────────────────────── */
+.photo-upload-row { display: flex; align-items: center; gap: 10px; }
+.photo-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; }
+.photo-placeholder {
+  width: 60px; height: 60px; border-radius: 8px; border: 1px dashed var(--border-2);
+  display: grid; place-items: center; color: var(--fg-2); opacity: .5; flex-shrink: 0;
+}
+.btn-upload {
+  padding: 6px 14px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--fg-2);
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.btn-upload:hover { background: var(--surface-3); color: var(--fg); }
+
+/* ── variant list thumbnail ──────────────────────────────────────────── */
+.var-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; }
+.var-thumb-ph {
+  width: 40px; height: 40px; border-radius: 6px; border: 1px dashed var(--border);
+  display: grid; place-items: center; color: var(--fg-2); opacity: .35; flex-shrink: 0;
+}
 
 .action-drop {
   z-index: 9999; background: var(--surface); border: 1px solid var(--border);

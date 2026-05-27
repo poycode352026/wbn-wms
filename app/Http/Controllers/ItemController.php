@@ -74,14 +74,16 @@ class ItemController extends Controller
                     'code' => $i->warehouse->code,
                     'name' => $i->warehouse->name,
                 ] : null,
+                'photo_required' => $i->photo_required,
                 'variants' => $i->variants->map(fn ($v) => [
-                    'id'        => $v->id,
-                    'brand'     => $v->brand,
-                    'model'     => $v->model,
-                    'size'      => $v->size,
-                    'color'     => $v->color,
-                    'sku'       => $v->sku,
-                    'is_active' => $v->is_active,
+                    'id'         => $v->id,
+                    'brand'      => $v->brand,
+                    'model'      => $v->model,
+                    'size'       => $v->size,
+                    'color'      => $v->color,
+                    'sku'        => $v->sku,
+                    'photo_path' => $v->photo_path ? asset('storage/' . $v->photo_path) : null,
+                    'is_active'  => $v->is_active,
                 ])->values(),
             ]);
 
@@ -168,10 +170,20 @@ class ItemController extends Controller
             'model'     => ['nullable', 'string', 'max:100'],
             'size'      => ['nullable', 'string', 'max:100'],
             'color'     => ['nullable', 'string', 'max:100'],
-            'sku'       => ['nullable', 'string', 'max:100', 'unique:item_variants,sku'],
+            'photo'     => [$item->photo_required ? 'required' : 'nullable', 'image', 'max:2048'],
             'is_active' => ['boolean'],
         ]);
-        $item->variants()->create($request->only(['brand', 'model', 'size', 'color', 'sku', 'is_active']));
+
+        $seq  = $item->variants()->withTrashed()->count() + 1;
+        $sku  = $item->part_number . '-' . str_pad($seq, 3, '0', STR_PAD_LEFT);
+        $data = $request->only(['brand', 'model', 'size', 'color', 'is_active']);
+        $data['sku'] = $sku;
+
+        if ($request->hasFile('photo')) {
+            $data['photo_path'] = $request->file('photo')->store("variants/{$item->id}", 'public');
+        }
+
+        $item->variants()->create($data);
         return back()->with('success', 'Variant added.');
     }
 
@@ -182,15 +194,28 @@ class ItemController extends Controller
             'model'     => ['nullable', 'string', 'max:100'],
             'size'      => ['nullable', 'string', 'max:100'],
             'color'     => ['nullable', 'string', 'max:100'],
-            'sku'       => ['nullable', 'string', 'max:100', 'unique:item_variants,sku,' . $itemVariant->id],
+            'photo'     => ['nullable', 'image', 'max:2048'],
             'is_active' => ['boolean'],
         ]);
-        $itemVariant->update($request->only(['brand', 'model', 'size', 'color', 'sku', 'is_active']));
+
+        $data = $request->only(['brand', 'model', 'size', 'color', 'is_active']);
+
+        if ($request->hasFile('photo')) {
+            if ($itemVariant->photo_path) {
+                \Storage::disk('public')->delete($itemVariant->photo_path);
+            }
+            $data['photo_path'] = $request->file('photo')->store("variants/{$item->id}", 'public');
+        }
+
+        $itemVariant->update($data);
         return back()->with('success', 'Variant updated.');
     }
 
     public function destroyVariant(Item $item, ItemVariant $itemVariant): RedirectResponse
     {
+        if ($itemVariant->photo_path) {
+            \Storage::disk('public')->delete($itemVariant->photo_path);
+        }
         $itemVariant->delete();
         return back()->with('success', 'Variant deleted.');
     }

@@ -33,7 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('locations', LocationController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('items', ItemController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::post('/items/{item}/variants', [ItemController::class, 'storeVariant'])->name('items.storeVariant');
-    Route::patch('/items/{item}/variants/{itemVariant}', [ItemController::class, 'updateVariant'])->name('items.updateVariant');
+    Route::post('/items/{item}/variants/{itemVariant}', [ItemController::class, 'updateVariant'])->name('items.updateVariant');
     Route::delete('/items/{item}/variants/{itemVariant}', [ItemController::class, 'destroyVariant'])->name('items.destroyVariant');
     Route::post('/item-categories', [ItemController::class, 'storeCategory'])->name('item-categories.store');
     Route::patch('/item-categories/{itemCategory}', [ItemController::class, 'updateCategory'])->name('item-categories.update');

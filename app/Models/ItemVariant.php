@@ -10,7 +10,7 @@ class ItemVariant extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['item_id', 'brand', 'model', 'size', 'color', 'sku', 'is_active'];
+    protected $fillable = ['item_id', 'brand', 'model', 'size', 'color', 'sku', 'photo_path', 'is_active'];
 
     protected $casts = ['is_active' => 'boolean'];
 
