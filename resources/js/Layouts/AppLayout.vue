@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { usePage, router } from '@inertiajs/vue3'
+import { usePage, router, Link } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 
 const { t, locale } = useI18n()
@@ -82,46 +82,46 @@ function logout() { router.post(route('logout')) }
     <nav class="sb-nav">
       <div class="nav-section">
         <div class="nav-section-label">{{ $t('sec.main') }}</div>
-        <a class="nav-item" :class="{ active: route().current('dashboard') }" :href="route('dashboard')" :data-tip="$t('menu.dashboard')">
+        <Link class="nav-item" :class="{ active: route().current('dashboard') }" :href="route('dashboard')" :data-tip="$t('menu.dashboard')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
           <span class="lbl">{{ $t('menu.dashboard') }}</span>
-        </a>
+        </Link>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-label">{{ $t('sec.system') }}</div>
-        <a class="nav-item" :class="{ active: route().current('users.*') }" :href="route('users.index')" :data-tip="$t('menu.users')">
+        <Link class="nav-item" :class="{ active: route().current('users.*') }" :href="route('users.index')" :data-tip="$t('menu.users')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="lbl">{{ $t('menu.users') }}</span>
-        </a>
-        <a class="nav-item" :class="{ active: route().current('departments.*') }" :href="route('departments.index')" :data-tip="$t('menu.departments')">
+        </Link>
+        <Link class="nav-item" :class="{ active: route().current('departments.*') }" :href="route('departments.index')" :data-tip="$t('menu.departments')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 12h.01M9 15h.01M9 18h.01M14 9h.01M14 12h.01M14 15h.01M14 18h.01"/></svg>
           <span class="lbl">{{ $t('menu.departments') }}</span>
-        </a>
-        <a class="nav-item" :class="{ active: route().current('permissions.*') }" :href="route('permissions.index')" :data-tip="$t('menu.permissions')">
+        </Link>
+        <Link class="nav-item" :class="{ active: route().current('permissions.*') }" :href="route('permissions.index')" :data-tip="$t('menu.permissions')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           <span class="lbl">{{ $t('menu.permissions') }}</span>
-        </a>
+        </Link>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-label">{{ $t('sec.warehouse') }}</div>
-        <a class="nav-item" :class="{ active: route().current('warehouses.*') }" :href="route('warehouses.index')" :data-tip="$t('menu.warehouses')">
+        <Link class="nav-item" :class="{ active: route().current('warehouses.*') }" :href="route('warehouses.index')" :data-tip="$t('menu.warehouses')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21V12h6v9"/></svg>
           <span class="lbl">{{ $t('menu.warehouses') }}</span>
-        </a>
-        <a class="nav-item" :class="{ active: route().current('locations.*') }" :href="route('locations.index')" :data-tip="$t('menu.rackManagement')">
+        </Link>
+        <Link class="nav-item" :class="{ active: route().current('locations.*') }" :href="route('locations.index')" :data-tip="$t('menu.rackManagement')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="11" width="18" height="6" rx="1.5"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
           <span class="lbl">{{ $t('menu.rackManagement') }}</span>
-        </a>
+        </Link>
       </div>
 
       <div class="nav-section">
         <div class="nav-section-label">{{ $t('sec.inventory') }}</div>
-        <a class="nav-item" :class="{ active: route().current('items.*') }" :href="route('items.index')" :data-tip="$t('menu.itemMaster')">
+        <Link class="nav-item" :class="{ active: route().current('items.*') }" :href="route('items.index')" :data-tip="$t('menu.itemMaster')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8L12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
           <span class="lbl">{{ $t('menu.itemMaster') }}</span>
-        </a>
+        </Link>
         <a class="nav-item" href="#" :data-tip="$t('menu.goodsReceipt')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg>
           <span class="lbl">{{ $t('menu.goodsReceipt') }}</span><span class="lbl-badge">GR</span>

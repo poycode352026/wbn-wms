@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { router, useForm, usePage } from '@inertiajs/vue3'
+import { router, useForm, usePage, Link } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
@@ -434,8 +434,9 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
       <div v-if="items.last_page > 1" class="pager-row">
         <span>{{ $t('im.showing', { from: items.from ?? 0, to: items.to ?? 0, total: items.total }) }}</span>
         <div style="display:flex;gap:4px">
-          <a v-for="link in items.links" :key="link.label"
-            :href="link.url ?? undefined" v-html="link.label"
+          <Link v-for="link in items.links" :key="link.label"
+            :href="link.url ?? '#'" v-html="link.label"
+            preserve-scroll
             :class="['page-btn', { active: link.active, disabled: !link.url }]" />
         </div>
       </div>
