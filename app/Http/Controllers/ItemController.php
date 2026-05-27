@@ -10,6 +10,7 @@ use App\Models\ItemVariant;
 use App\Models\Warehouse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -200,7 +201,7 @@ class ItemController extends Controller
     {
         $request->validate([
             'warehouse_id' => ['required', 'exists:warehouses,id'],
-            'code'         => ['required', 'string', 'max:20', 'unique:item_categories,code'],
+            'code'         => ['required', 'string', 'max:20', Rule::unique('item_categories')->where('warehouse_id', $request->warehouse_id)],
             'name_id'      => ['required', 'string', 'max:150'],
             'name_en'      => ['required', 'string', 'max:150'],
             'name_zh'      => ['required', 'string', 'max:150'],
@@ -214,7 +215,7 @@ class ItemController extends Controller
     {
         $request->validate([
             'warehouse_id' => ['required', 'exists:warehouses,id'],
-            'code'         => ['required', 'string', 'max:20', 'unique:item_categories,code,' . $itemCategory->id],
+            'code'         => ['required', 'string', 'max:20', Rule::unique('item_categories')->where('warehouse_id', $request->warehouse_id)->ignore($itemCategory->id)],
             'name_id'      => ['required', 'string', 'max:150'],
             'name_en'      => ['required', 'string', 'max:150'],
             'name_zh'      => ['required', 'string', 'max:150'],
