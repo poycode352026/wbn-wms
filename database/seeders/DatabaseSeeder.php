@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Department;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Database\Seeders\WarehouseAndCategorySeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -54,5 +55,7 @@ class DatabaseSeeder extends Seeder
             'is_active'          => true,
             'department_id'      => $department->id,
         ]);
+
+        $this->call(WarehouseAndCategorySeeder::class);
     }
 }
