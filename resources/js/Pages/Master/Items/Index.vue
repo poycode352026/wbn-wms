@@ -31,37 +31,26 @@ const whFilter   = ref(props.filters.warehouse_id ?? '')
 const catFilter  = ref(props.filters.category_id ?? '')
 const statusFilt = ref(props.filters.status ?? '')
 const catSearch  = ref(props.filters.cat_search ?? '')
-const catWhFilt  = ref(props.filters.cat_warehouse ?? '')
 
 function applyFilter() {
     router.get(route('items.index'), {
-        search:        search.value || undefined,
-        warehouse_id:  whFilter.value || undefined,
-        category_id:   catFilter.value || undefined,
-        status:        statusFilt.value || undefined,
-        cat_search:    catSearch.value || undefined,
-        cat_warehouse: catWhFilt.value || undefined,
-        tab:           activeTab.value !== 'items' ? activeTab.value : undefined,
+        search:       search.value || undefined,
+        warehouse_id: whFilter.value || undefined,
+        category_id:  catFilter.value || undefined,
+        status:       statusFilt.value || undefined,
+        cat_search:   catSearch.value || undefined,
+        tab:          activeTab.value !== 'items' ? activeTab.value : undefined,
     }, { preserveState: true, replace: true })
 }
 
 let searchTimer
 watch(search,    () => { clearTimeout(searchTimer); searchTimer = setTimeout(applyFilter, 400) })
 watch(catSearch, () => { clearTimeout(searchTimer); searchTimer = setTimeout(applyFilter, 400) })
-watch([whFilter, catFilter, statusFilt, catWhFilt], applyFilter)
-
-watch(whFilter, (newWh) => {
-    if (newWh && catFilter.value) {
-        const cat = props.categories.find(c => c.id == catFilter.value)
-        if (cat && cat.warehouse_id != newWh) catFilter.value = ''
-    }
-})
+watch([whFilter, catFilter, statusFilt], applyFilter)
 
 // ── Category options for filter bar (items tab) ───────────────────────────
 const filteredCatOptions = computed(() =>
-    whFilter.value
-        ? props.categories.filter(c => c.is_active && c.warehouse_id == whFilter.value)
-        : props.categories.filter(c => c.is_active)
+    props.categories.filter(c => c.is_active)
 )
 
 // ── Categories tab: passthrough (server-side filtered) ───────────────────
@@ -71,6 +60,7 @@ const displayedCats = computed(() => props.categories)
 const showItemModal = ref(false)
 const editingItem   = ref(null)
 const nameTab       = ref('en')
+const partSuffix    = ref('')
 
 const form = useForm({
     warehouse_id:       '',
@@ -91,16 +81,21 @@ const form = useForm({
     is_active:          true,
 })
 
-const formCatOptions = computed(() =>
-    form.warehouse_id
-        ? props.categories.filter(c => c.is_active && c.warehouse_id == form.warehouse_id)
-        : props.categories.filter(c => c.is_active)
-)
+const formCatOptions = computed(() => props.categories.filter(c => c.is_active))
 
-watch(() => form.warehouse_id, () => { form.category_id = '' })
+const selectedCatPrefix = computed(() => {
+    const cat = props.categories.find(c => c.id == form.category_id)
+    return cat?.prefix ?? null
+})
+
+watch([() => form.category_id, partSuffix], () => {
+    if (!selectedCatPrefix.value) return
+    const suffix = partSuffix.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+    form.part_number = suffix ? `WBN-${selectedCatPrefix.value}-${suffix}` : ''
+})
 
 function openAdd() {
-    editingItem.value = null
+    editingItem.value      = null
     form.reset()
     form.is_active         = true
     form.minimum_stock     = 0
@@ -108,6 +103,7 @@ function openAdd() {
     form.photo_required    = false
     form.cooldown_track_by = 'employee_id'
     nameTab.value          = 'en'
+    partSuffix.value       = ''
     showItemModal.value    = true
 }
 
@@ -130,7 +126,13 @@ function openEdit(item) {
     form.photo_required     = item.photo_required
     form.is_active          = item.is_active
     nameTab.value           = 'en'
-    showItemModal.value     = true
+    // Extract suffix from existing part_number (WBN-PREFIX-SUFFIX)
+    const cat = props.categories.find(c => c.id == item.category?.id)
+    const marker = cat ? `WBN-${cat.prefix}-` : null
+    partSuffix.value = (marker && item.part_number.startsWith(marker))
+        ? item.part_number.slice(marker.length)
+        : item.part_number
+    showItemModal.value = true
 }
 
 function submitItem() {
@@ -139,6 +141,7 @@ function submitItem() {
         onSuccess: () => {
             showItemModal.value = false
             form.reset()
+            partSuffix.value = ''
             if (isNew) {
                 const newId = usePage().props.flash?.newItemId
                 if (newId) {
@@ -162,12 +165,12 @@ const showCatModal = ref(false)
 const editingCat   = ref(null)
 
 const catForm = useForm({
-    warehouse_id: '',
-    code:         '',
-    name_id:      '',
-    name_en:      '',
-    name_zh:      '',
-    is_active:    true,
+    code:      '',
+    prefix:    '',
+    name_id:   '',
+    name_en:   '',
+    name_zh:   '',
+    is_active: true,
 })
 
 function openAddCat() {
@@ -178,14 +181,14 @@ function openAddCat() {
 }
 
 function openEditCat(cat) {
-    editingCat.value       = cat
-    catForm.warehouse_id   = cat.warehouse_id
-    catForm.code           = cat.code
-    catForm.name_id        = cat.name_id
-    catForm.name_en        = cat.name_en
-    catForm.name_zh        = cat.name_zh
-    catForm.is_active      = cat.is_active
-    showCatModal.value     = true
+    editingCat.value   = cat
+    catForm.code       = cat.code
+    catForm.prefix     = cat.prefix
+    catForm.name_id    = cat.name_id
+    catForm.name_en    = cat.name_en
+    catForm.name_zh    = cat.name_zh
+    catForm.is_active  = cat.is_active
+    showCatModal.value = true
 }
 
 function submitCat() {
@@ -455,10 +458,6 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
       <div class="filter-bar">
         <input class="form-input" style="flex:1;min-width:200px"
           v-model="catSearch" :placeholder="$t('im.catSearch')" />
-        <select class="form-select" style="width:160px" v-model="catWhFilt">
-          <option value="">{{ $t('im.filterWh') }}</option>
-          <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.code }} · {{ w.name }}</option>
-        </select>
         <button class="btn-primary" @click="openAddCat" type="button">+ {{ $t('im.addCategory') }}</button>
       </div>
 
@@ -468,8 +467,8 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
             <tr>
               <th style="width:40px">#</th>
               <th>{{ $t('lm.colCode') }}</th>
+              <th>Prefix</th>
               <th>{{ $t('im.colName') }}</th>
-              <th>{{ $t('im.catWarehouse') }}</th>
               <th style="text-align:right">{{ $t('im.catItems') }}</th>
               <th>{{ $t('lm.colStatus') }}</th>
               <th style="width:40px"></th>
@@ -486,11 +485,13 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
                   {{ cat.code }}
                 </span>
               </td>
+              <td>
+                <span style="font-family:monospace;font-size:11px;opacity:.6;background:rgba(99,102,241,.1);color:#818cf8;padding:2px 7px;border-radius:4px;font-weight:700">
+                  WBN-{{ cat.prefix }}-…
+                </span>
+              </td>
               <td style="max-width:220px">
                 <div style="font-weight:500">{{ catName(cat) }}</div>
-              </td>
-              <td>
-                <span v-if="cat.warehouse" style="font-size:12px;opacity:.6">{{ cat.warehouse.code }}</span>
               </td>
               <td style="text-align:right;font-weight:500">{{ cat.items_count }}</td>
               <td>
@@ -550,10 +551,42 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
         </div>
         <form @submit.prevent="submitItem" class="modal-body">
 
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label class="form-label">{{ $t('im.warehouse') }} <span class="req">*</span></label>
+              <select class="form-select" v-model="form.warehouse_id" required>
+                <option value="">— Select —</option>
+                <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.code }} · {{ w.name }}</option>
+              </select>
+              <div v-if="form.errors.warehouse_id" class="form-err">{{ form.errors.warehouse_id }}</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">{{ $t('im.category') }} <span class="req">*</span></label>
+              <select class="form-select" v-model="form.category_id" required>
+                <option value="">— Select —</option>
+                <option v-for="c in formCatOptions" :key="c.id" :value="c.id">{{ c.code }} · {{ catName(c) }}</option>
+              </select>
+              <div v-if="form.errors.category_id" class="form-err">{{ form.errors.category_id }}</div>
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label">{{ $t('im.partNumber') }} <span class="req">*</span></label>
-            <input class="form-input" style="font-family:monospace;text-transform:uppercase"
-              v-model="form.part_number" :placeholder="$t('im.partNumberPh')" required />
+            <div class="pn-compose-row">
+              <span class="pn-prefix-badge">WBN-{{ selectedCatPrefix ?? '???' }}-</span>
+              <input class="form-input pn-suffix-input"
+                v-model="partSuffix"
+                placeholder="e.g. STLI"
+                style="font-family:monospace"
+                @input="partSuffix = partSuffix.toUpperCase().replace(/[^A-Z0-9]/g, '')" />
+            </div>
+            <div v-if="form.part_number" class="pn-preview">
+              <span style="opacity:.45">Part No:</span>
+              <strong style="font-family:monospace;letter-spacing:.03em">{{ form.part_number }}</strong>
+            </div>
+            <div v-if="!form.category_id" style="font-size:11px;color:#f97316;margin-top:3px">
+              Pilih kategori terlebih dahulu untuk menentukan prefix
+            </div>
             <div v-if="form.errors.part_number" class="form-err">{{ form.errors.part_number }}</div>
           </div>
 
@@ -584,25 +617,6 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
             <label class="form-label">{{ $t('im.description') }}</label>
             <textarea class="form-input" v-model="form.description"
               :placeholder="$t('im.descPh')" rows="2" style="resize:vertical" />
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="form-group">
-              <label class="form-label">{{ $t('im.warehouse') }} <span class="req">*</span></label>
-              <select class="form-select" v-model="form.warehouse_id" required>
-                <option value="">— Select —</option>
-                <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.code }} · {{ w.name }}</option>
-              </select>
-              <div v-if="form.errors.warehouse_id" class="form-err">{{ form.errors.warehouse_id }}</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">{{ $t('im.category') }} <span class="req">*</span></label>
-              <select class="form-select" v-model="form.category_id" required>
-                <option value="">— Select —</option>
-                <option v-for="c in formCatOptions" :key="c.id" :value="c.id">{{ c.code }} · {{ catName(c) }}</option>
-              </select>
-              <div v-if="form.errors.category_id" class="form-err">{{ form.errors.category_id }}</div>
-            </div>
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -695,20 +709,21 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
         </div>
         <form @submit.prevent="submitCat" class="modal-body">
 
-          <div class="form-group">
-            <label class="form-label">{{ $t('im.catWarehouse') }} <span class="req">*</span></label>
-            <select class="form-select" v-model="catForm.warehouse_id" required>
-              <option value="">— Select —</option>
-              <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.code }} · {{ w.name }}</option>
-            </select>
-            <div v-if="catForm.errors.warehouse_id" class="form-err">{{ catForm.errors.warehouse_id }}</div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">{{ $t('im.catCode') }} <span class="req">*</span></label>
-            <input class="form-input" style="font-family:monospace;text-transform:uppercase"
-              v-model="catForm.code" :placeholder="$t('im.catCodePh')" required />
-            <div v-if="catForm.errors.code" class="form-err">{{ catForm.errors.code }}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label class="form-label">{{ $t('im.catCode') }} <span class="req">*</span></label>
+              <input class="form-input" style="font-family:monospace;text-transform:uppercase"
+                v-model="catForm.code" :placeholder="$t('im.catCodePh')" required />
+              <div v-if="catForm.errors.code" class="form-err">{{ catForm.errors.code }}</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prefix Part No <span class="req">*</span></label>
+              <input class="form-input" style="font-family:monospace;text-transform:uppercase"
+                v-model="catForm.prefix" placeholder="e.g. MCNC" maxlength="10" required
+                @input="catForm.prefix = catForm.prefix.toUpperCase().replace(/[^A-Z0-9]/g, '')" />
+              <div style="font-size:11px;opacity:.4;margin-top:2px">→ WBN-{{ catForm.prefix || '???' }}-XXXXX</div>
+              <div v-if="catForm.errors.prefix" class="form-err">{{ catForm.errors.prefix }}</div>
+            </div>
           </div>
 
           <div class="form-group">
@@ -1006,6 +1021,21 @@ textarea.form-input { resize: vertical; }
 
 .req { color: #f87171; }
 .pager-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; opacity: .7; }
+
+/* ── part number composer ────────────────────────────────────────────── */
+.pn-compose-row { display: flex; align-items: center; gap: 0; }
+.pn-prefix-badge {
+  flex-shrink: 0; padding: 7px 10px; background: var(--surface-2);
+  border: 1px solid var(--border); border-right: none;
+  border-radius: 7px 0 0 7px; font-family: monospace; font-size: 13px;
+  font-weight: 700; color: var(--orange-400); white-space: nowrap;
+}
+.pn-suffix-input { border-radius: 0 7px 7px 0 !important; }
+.pn-preview {
+  margin-top: 5px; padding: 5px 10px; border-radius: 6px;
+  background: rgba(251,146,60,.08); border: 1px dashed rgba(251,146,60,.3);
+  font-size: 12px; color: var(--fg); display: flex; gap: 6px; align-items: center;
+}
 
 /* ── photo upload ────────────────────────────────────────────────────── */
 .photo-upload-row { display: flex; align-items: center; gap: 10px; }

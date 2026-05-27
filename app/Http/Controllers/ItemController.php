@@ -24,7 +24,7 @@ class ItemController extends Controller
 
         $items = Item::query()
             ->with([
-                'category:id,code,name_id,name_en,name_zh',
+                'category:id,code,prefix,name_id,name_en,name_zh',
                 'warehouse:id,code,name',
                 'variants' => fn ($q) => $q->orderBy('id'),
             ])
@@ -65,6 +65,7 @@ class ItemController extends Controller
                 'category'           => $i->category ? [
                     'id'      => $i->category->id,
                     'code'    => $i->category->code,
+                    'prefix'  => $i->category->prefix,
                     'name_id' => $i->category->name_id,
                     'name_en' => $i->category->name_en,
                     'name_zh' => $i->category->name_zh,
@@ -88,7 +89,6 @@ class ItemController extends Controller
             ]);
 
         $categories = ItemCategory::query()
-            ->with('warehouse:id,code,name')
             ->withCount('items')
             ->when($request->cat_search, fn ($q, $s) =>
                 $q->where(fn ($q2) =>
@@ -96,26 +96,17 @@ class ItemController extends Controller
                        ->orWhere('name_id', 'like', "%{$s}%")
                        ->orWhere('code', 'like', "%{$s}%")
                 ))
-            ->when($request->cat_warehouse, fn ($q) =>
-                $q->where('warehouse_id', $request->cat_warehouse)
-            )
-            ->orderBy('warehouse_id')
             ->orderBy('code')
             ->get()
             ->map(fn ($c) => [
                 'id'          => $c->id,
-                'warehouse_id' => $c->warehouse_id,
                 'code'        => $c->code,
+                'prefix'      => $c->prefix,
                 'name_id'     => $c->name_id,
                 'name_en'     => $c->name_en,
                 'name_zh'     => $c->name_zh,
                 'is_active'   => $c->is_active,
                 'items_count' => $c->items_count,
-                'warehouse'   => $c->warehouse ? [
-                    'id'   => $c->warehouse->id,
-                    'code' => $c->warehouse->code,
-                    'name' => $c->warehouse->name,
-                ] : null,
             ])
             ->values();
 
@@ -125,7 +116,7 @@ class ItemController extends Controller
             'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'filters'    => $request->only([
                 'search', 'warehouse_id', 'category_id', 'status',
-                'sort', 'dir', 'cat_search', 'cat_warehouse', 'tab',
+                'sort', 'dir', 'cat_search', 'tab',
             ]),
             'stats' => [
                 'totalItems'      => Item::count(),
@@ -225,28 +216,28 @@ class ItemController extends Controller
     public function storeCategory(Request $request): RedirectResponse
     {
         $request->validate([
-            'warehouse_id' => ['required', 'exists:warehouses,id'],
-            'code'         => ['required', 'string', 'max:20', Rule::unique('item_categories')->where('warehouse_id', $request->warehouse_id)],
-            'name_id'      => ['required', 'string', 'max:150'],
-            'name_en'      => ['required', 'string', 'max:150'],
-            'name_zh'      => ['required', 'string', 'max:150'],
-            'is_active'    => ['boolean'],
+            'code'      => ['required', 'string', 'max:20', 'unique:item_categories,code'],
+            'prefix'    => ['required', 'string', 'max:10'],
+            'name_id'   => ['required', 'string', 'max:150'],
+            'name_en'   => ['required', 'string', 'max:150'],
+            'name_zh'   => ['required', 'string', 'max:150'],
+            'is_active' => ['boolean'],
         ]);
-        ItemCategory::create($request->only(['warehouse_id', 'code', 'name_id', 'name_en', 'name_zh', 'is_active']));
+        ItemCategory::create($request->only(['code', 'prefix', 'name_id', 'name_en', 'name_zh', 'is_active']));
         return back()->with('success', 'Category created.');
     }
 
     public function updateCategory(Request $request, ItemCategory $itemCategory): RedirectResponse
     {
         $request->validate([
-            'warehouse_id' => ['required', 'exists:warehouses,id'],
-            'code'         => ['required', 'string', 'max:20', Rule::unique('item_categories')->where('warehouse_id', $request->warehouse_id)->ignore($itemCategory->id)],
-            'name_id'      => ['required', 'string', 'max:150'],
-            'name_en'      => ['required', 'string', 'max:150'],
-            'name_zh'      => ['required', 'string', 'max:150'],
-            'is_active'    => ['boolean'],
+            'code'      => ['required', 'string', 'max:20', Rule::unique('item_categories', 'code')->ignore($itemCategory->id)],
+            'prefix'    => ['required', 'string', 'max:10'],
+            'name_id'   => ['required', 'string', 'max:150'],
+            'name_en'   => ['required', 'string', 'max:150'],
+            'name_zh'   => ['required', 'string', 'max:150'],
+            'is_active' => ['boolean'],
         ]);
-        $itemCategory->update($request->only(['warehouse_id', 'code', 'name_id', 'name_en', 'name_zh', 'is_active']));
+        $itemCategory->update($request->only(['code', 'prefix', 'name_id', 'name_en', 'name_zh', 'is_active']));
         return back()->with('success', 'Category updated.');
     }
 
