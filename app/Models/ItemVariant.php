@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ItemVariant extends Model
 {
@@ -17,5 +18,10 @@ class ItemVariant extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
+    }
+
+    public function stockLedgers(): HasMany
+    {
+        return $this->hasMany(StockLedger::class, 'item_variant_id');
     }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\StockInputController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Foundation\Application;
@@ -41,6 +42,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/item-categories', [ItemController::class, 'storeCategory'])->name('item-categories.store');
     Route::patch('/item-categories/{itemCategory}', [ItemController::class, 'updateCategory'])->name('item-categories.update');
     Route::delete('/item-categories/{itemCategory}', [ItemController::class, 'destroyCategory'])->name('item-categories.destroy');
+
+    // Stock Input
+    Route::get('/stock-input', [StockInputController::class, 'index'])->name('stock-input.index');
+    Route::post('/stock-input/{variant}/set', [StockInputController::class, 'upsert'])->name('stock-input.upsert');
+    Route::delete('/stock-input/entries/{stockLedger}', [StockInputController::class, 'destroy'])->name('stock-input.destroy');
 });
 
 require __DIR__.'/auth.php';

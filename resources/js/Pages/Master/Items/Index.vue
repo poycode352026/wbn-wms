@@ -18,7 +18,11 @@ const props = defineProps({
 const activeTab = ref(props.filters.tab === 'categories' ? 'categories' : 'items')
 
 // ── Name helpers ──────────────────────────────────────────────────────────
-function itemName(item) { return item.name_en }
+function itemName(item) {
+    if (locale.value === 'zh' && item.name_zh) return item.name_zh
+    if (locale.value === 'id' && item.name_id) return item.name_id
+    return item.name_en
+}
 function catName(cat) {
     if (locale.value === 'zh' && cat.name_zh) return cat.name_zh
     if (locale.value === 'id' && cat.name_id) return cat.name_id
@@ -116,8 +120,8 @@ function openEdit(item) {
     form.description        = item.description ?? ''
     form.base_uom           = item.base_uom
     form.alt_uom            = item.alt_uom ?? ''
-    form.alt_uom_conversion = item.alt_uom_conversion ?? ''
-    form.minimum_stock      = item.minimum_stock
+    form.alt_uom_conversion = item.alt_uom_conversion != null ? parseFloat(item.alt_uom_conversion) : ''
+    form.minimum_stock      = parseFloat(item.minimum_stock)
     form.has_cooldown       = item.has_cooldown
     form.cooldown_days      = item.cooldown_days ?? ''
     form.cooldown_track_by  = item.cooldown_track_by ?? 'employee_id'
@@ -238,6 +242,18 @@ function editVariant(v) {
     varForm.color        = v.color ?? ''
     varForm.photo        = null
     varForm.is_active    = v.is_active
+    photoPreview.value   = null   // reset preview when switching to edit mode
+}
+
+function onVariantPhotoChange(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    varForm.photo = file
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+        photoPreview.value = ev.target.result  // data:image/...;base64,...
+    }
+    reader.readAsDataURL(file)
 }
 
 function cancelEditVar() {
@@ -385,11 +401,11 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
         <button class="btn-primary" @click="openAdd" type="button">+ {{ $t('im.addItem') }}</button>
         <a :href="route('items.export')" class="btn-ghost" style="white-space:nowrap;display:inline-flex;align-items:center;gap:5px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export
+          {{ $t('im.exportBtn') }}
         </a>
         <button class="btn-ghost" @click="showImportModal = true" type="button" style="white-space:nowrap;display:inline-flex;align-items:center;gap:5px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Import
+          {{ $t('im.importBtn') }}
         </button>
       </div>
 
@@ -593,7 +609,7 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
               <strong style="font-family:monospace;letter-spacing:.03em">{{ form.part_number }}</strong>
             </div>
             <div v-if="!form.category_id" style="font-size:11px;color:#f97316;margin-top:3px">
-              Pilih kategori terlebih dahulu untuk menentukan prefix
+              {{ $t('im.selectCatFirst') }}
             </div>
             <div v-if="form.errors.part_number" class="form-err">{{ form.errors.part_number }}</div>
           </div>
@@ -643,7 +659,7 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
 
           <div v-if="form.alt_uom" class="form-group">
             <label class="form-label">{{ $t('im.conversion') }}</label>
-            <input class="form-input" v-model="form.alt_uom_conversion" type="number" step="0.0001" min="0"
+            <input class="form-input" v-model="form.alt_uom_conversion" type="number" step="any" min="0"
               :placeholder="`1 ${form.alt_uom} = ? ${form.base_uom}`" />
             <div style="font-size:11px;opacity:.45;margin-top:3px">
               {{ $t('im.conversionHint', { alt: form.alt_uom || '?', n: form.alt_uom_conversion || '?', base: form.base_uom || '?' }) }}
@@ -850,18 +866,22 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
                   <span v-else style="opacity:.4;font-weight:400"> (optional)</span>
                 </label>
                 <div class="photo-upload-row">
-                  <img v-if="editingVariant?.photo_path && !varForm.photo"
+                  <!-- new preview (after file selected) -->
+                  <img v-if="photoPreview"
+                    :src="photoPreview" class="photo-thumb" alt="preview"
+                    style="cursor:zoom-in" @click="lightboxSrc = photoPreview" />
+                  <!-- existing saved photo (edit mode, no new file chosen yet) -->
+                  <img v-else-if="editingVariant?.photo_path"
                     :src="editingVariant.photo_path" class="photo-thumb" alt="current photo"
                     style="cursor:zoom-in" @click="lightboxSrc = editingVariant.photo_path" />
-                  <div v-else-if="!varForm.photo" class="photo-placeholder">
+                  <!-- placeholder (new variant, nothing selected) -->
+                  <div v-else class="photo-placeholder">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                   </div>
-                  <img v-else :src="photoPreview" class="photo-thumb" alt="preview"
-                    style="cursor:zoom-in" @click="lightboxSrc = photoPreview" />
                   <label class="btn-upload">
                     <input type="file" accept="image/*" style="display:none"
-                      @change="e => { varForm.photo = e.target.files[0]; photoPreview.value = URL.createObjectURL(e.target.files[0]) }" />
-                    {{ varForm.photo ? 'Change' : (editingVariant?.photo_path ? 'Replace' : 'Upload') }}
+                      @change="onVariantPhotoChange" />
+                    {{ photoPreview ? 'Change' : (editingVariant?.photo_path ? 'Replace' : 'Upload') }}
                   </label>
                 </div>
                 <div v-if="varForm.errors.photo" class="form-err">{{ varForm.errors.photo }}</div>
@@ -899,60 +919,63 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
     <div v-if="showImportModal" class="modal-backdrop" @click.self="showImportModal = false">
       <div class="modal-box" style="max-width:480px">
         <div class="modal-header">
-          <h2>Import Items dari CSV</h2>
+          <h2>{{ $t('im.importTitle') }}</h2>
           <button class="icon-btn" @click="showImportModal = false" type="button">✕</button>
         </div>
         <div class="modal-body">
 
-          <!-- Instructions -->
+          <!-- Steps -->
           <div class="import-steps">
             <div class="import-step">
               <span class="step-num">1</span>
               <div>
-                <div style="font-weight:600;font-size:13px">Download template CSV</div>
-                <div style="font-size:12px;opacity:.55">Template berisi kolom lengkap + contoh data</div>
+                <div style="font-weight:600;font-size:13px">{{ $t('im.importStep1') }}</div>
+                <div style="font-size:12px;opacity:.55">{{ $t('im.importStep1Sub') }}</div>
               </div>
             </div>
             <div class="import-step">
               <span class="step-num">2</span>
-              <div style="font-size:13px;font-weight:600">Isi data item & variant</div>
+              <div style="font-size:13px;font-weight:600">{{ $t('im.importStep2') }}</div>
             </div>
             <div class="import-step">
               <span class="step-num">3</span>
-              <div style="font-size:13px;font-weight:600">Upload dan submit</div>
+              <div style="font-size:13px;font-weight:600">{{ $t('im.importStep3') }}</div>
             </div>
           </div>
 
           <a :href="route('items.importTemplate')"
             class="btn-ghost" style="display:inline-flex;align-items:center;gap:7px;margin-bottom:18px;width:100%;justify-content:center">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download Template CSV
+            {{ $t('im.importDownloadTpl') }}
           </a>
 
+          <!-- Format guide -->
           <div class="import-format">
-            <div style="font-size:11px;font-weight:700;opacity:.5;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Format penting</div>
-            <ul style="font-size:12px;opacity:.7;margin:0;padding-left:16px;line-height:1.7">
-              <li><code>has_cooldown</code>, <code>is_active</code> → <code>yes</code> / <code>no</code></li>
-              <li><code>cooldown_track_by</code> → <code>lv_number</code> atau <code>employee_id</code></li>
-              <li>Item dengan beberapa variant → baris terpisah, <code>category_code</code> & <code>part_suffix</code> sama</li>
-              <li>Baris ke-2 dst: kolom item boleh dikosongkan</li>
+            <div style="font-size:11px;font-weight:700;opacity:.5;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+              {{ $t('im.importFormatTitle') }}
+            </div>
+            <ul style="font-size:12px;opacity:.7;margin:0;padding-left:16px;line-height:1.8">
+              <li>{{ $t('im.importFmt1') }}</li>
+              <li>{{ $t('im.importFmt2') }}</li>
+              <li>{{ $t('im.importFmt3') }}</li>
+              <li>{{ $t('im.importFmt4') }}</li>
             </ul>
           </div>
 
           <form @submit.prevent="submitImport" style="margin-top:16px">
             <div class="form-group">
-              <label class="form-label">File CSV <span class="req">*</span></label>
-              <input ref="importFileRef" type="file" accept=".csv,.txt"
+              <label class="form-label">{{ $t('im.importFile') }} <span class="req">*</span></label>
+              <input ref="importFileRef" type="file" accept=".csv,.xlsx,.xls"
                 class="form-input"
                 @change="e => { importForm.file = e.target.files[0] }" />
-              <div style="font-size:11px;opacity:.4;margin-top:3px">Maks 5 MB · format .csv</div>
+              <div style="font-size:11px;opacity:.4;margin-top:3px">{{ $t('im.importFileHint') }}</div>
               <div v-if="importForm.errors.file" class="form-err">{{ importForm.errors.file }}</div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn-ghost" @click="showImportModal = false">Batal</button>
+              <button type="button" class="btn-ghost" @click="showImportModal = false">{{ $t('btn.cancel') }}</button>
               <button type="submit" class="btn-primary"
                 :disabled="importForm.processing || !importForm.file">
-                {{ importForm.processing ? 'Mengimpor...' : 'Import' }}
+                {{ importForm.processing ? $t('im.importing') : $t('im.importBtn') }}
               </button>
             </div>
           </form>

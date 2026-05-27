@@ -18,7 +18,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('base_uom', 50);
             $table->string('alt_uom', 50)->nullable();
-            $table->decimal('alt_uom_conversion', 10, 2)->nullable();
+            $table->decimal('alt_uom_conversion', 10, 4)->nullable();
             $table->decimal('minimum_stock', 10, 2)->default(0);
             $table->boolean('has_cooldown')->default(false);
             $table->integer('cooldown_days')->nullable();

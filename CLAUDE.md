@@ -105,7 +105,7 @@ DB_PASSWORD=
 ---
 
 ## Dokumen Pendukung
-| File         | Isi                                  |
+| File         | Isi                                  
 |--------------|--------------------------------------|
 | `PRD.md`     | Fitur lengkap, status, user stories  |
 | `SCHEMA.md`  | Struktur database & relasi           |

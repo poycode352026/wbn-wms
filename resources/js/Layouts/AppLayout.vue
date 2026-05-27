@@ -122,6 +122,10 @@ function logout() { router.post(route('logout')) }
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8L12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
           <span class="lbl">{{ $t('menu.itemMaster') }}</span>
         </Link>
+        <Link class="nav-item" :class="{ active: route().current('stock-input.*') }" :href="route('stock-input.index')" :data-tip="$t('menu.stockInput')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-6"/></svg>
+          <span class="lbl">{{ $t('menu.stockInput') }}</span>
+        </Link>
         <a class="nav-item" href="#" :data-tip="$t('menu.goodsReceipt')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg>
           <span class="lbl">{{ $t('menu.goodsReceipt') }}</span><span class="lbl-badge">GR</span>

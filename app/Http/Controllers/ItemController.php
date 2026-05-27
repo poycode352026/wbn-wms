@@ -2,20 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ItemsExport;
+use App\Exports\ItemsImportTemplateExport;
 use App\Http\Requests\ItemStoreRequest;
 use App\Http\Requests\ItemUpdateRequest;
+use App\Imports\ItemsImportReader;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ItemVariant;
 use App\Models\Warehouse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ItemController extends Controller
 {
@@ -55,8 +60,8 @@ class ItemController extends Controller
                 'description'        => $i->description,
                 'base_uom'           => $i->base_uom,
                 'alt_uom'            => $i->alt_uom,
-                'alt_uom_conversion' => $i->alt_uom_conversion,
-                'minimum_stock'      => $i->minimum_stock,
+                'alt_uom_conversion' => $i->alt_uom_conversion !== null ? (float) $i->alt_uom_conversion : null,
+                'minimum_stock'      => (float) $i->minimum_stock,
                 'has_cooldown'       => $i->has_cooldown,
                 'cooldown_days'      => $i->cooldown_days,
                 'cooldown_track_by'  => $i->cooldown_track_by,
@@ -256,116 +261,19 @@ class ItemController extends Controller
 
     // ── Export ────────────────────────────────────────────────────────────
 
-    public function export(): StreamedResponse
+    public function export(): BinaryFileResponse
     {
-        $items = Item::query()
-            ->with(['category:id,code,prefix', 'variants' => fn ($q) => $q->orderBy('id')])
-            ->orderBy('part_number')
-            ->get();
-
-        return response()->streamDownload(function () use ($items) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
-
-            fputcsv($out, [
-                'category_code', 'part_suffix', 'name_en', 'name_id', 'name_zh',
-                'description', 'base_uom', 'alt_uom', 'alt_uom_conversion',
-                'minimum_stock', 'has_cooldown', 'cooldown_days', 'cooldown_track_by',
-                'photo_required', 'is_active',
-                'variant_brand', 'variant_model', 'variant_size', 'variant_color',
-                'variant_sku', 'variant_is_active',
-            ]);
-
-            foreach ($items as $item) {
-                $cat    = $item->category;
-                $prefix = $cat ? "WBN-{$cat->prefix}-" : 'WBN-???-';
-                $suffix = $cat ? substr($item->part_number, strlen($prefix)) : $item->part_number;
-
-                $base = [
-                    $cat?->code ?? '',
-                    $suffix,
-                    $item->name_en,
-                    $item->name_id,
-                    $item->name_zh,
-                    $item->description ?? '',
-                    $item->base_uom,
-                    $item->alt_uom ?? '',
-                    $item->alt_uom_conversion ?? '',
-                    $item->minimum_stock,
-                    $item->has_cooldown ? 'yes' : 'no',
-                    $item->cooldown_days ?? '',
-                    $item->cooldown_track_by ?? '',
-                    $item->photo_required ? 'yes' : 'no',
-                    $item->is_active ? 'yes' : 'no',
-                ];
-
-                if ($item->variants->isEmpty()) {
-                    fputcsv($out, array_merge($base, ['', '', '', '', '', 'yes']));
-                } else {
-                    foreach ($item->variants as $v) {
-                        fputcsv($out, array_merge($base, [
-                            $v->brand ?? '',
-                            $v->model ?? '',
-                            $v->size  ?? '',
-                            $v->color ?? '',
-                            $v->sku,
-                            $v->is_active ? 'yes' : 'no',
-                        ]));
-                    }
-                }
-            }
-
-            fclose($out);
-        }, 'items_export_' . now()->format('Ymd_His') . '.csv', [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return Excel::download(
+            new ItemsExport,
+            'items_export_' . now()->format('Ymd_His') . '.xlsx'
+        );
     }
 
     // ── Import Template ───────────────────────────────────────────────────
 
-    public function importTemplate(): StreamedResponse
+    public function importTemplate(): BinaryFileResponse
     {
-        $cats = ItemCategory::where('is_active', true)->orderBy('code')->get(['code', 'prefix']);
-
-        return response()->streamDownload(function () use ($cats) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF");
-
-            // Header row
-            fputcsv($out, [
-                'category_code', 'part_suffix', 'name_en', 'name_id', 'name_zh',
-                'description', 'base_uom', 'alt_uom', 'alt_uom_conversion',
-                'minimum_stock', 'has_cooldown(yes/no)', 'cooldown_days',
-                'cooldown_track_by(lv_number|employee_id)', 'photo_required(yes/no)',
-                'is_active(yes/no)', 'variant_brand', 'variant_model',
-                'variant_size', 'variant_color', 'variant_is_active(yes/no)',
-            ]);
-
-            // Info row: available categories
-            $catList = $cats->map(fn ($c) => "{$c->code}→WBN-{$c->prefix}-???")->join(' | ');
-            fputcsv($out, ["# Kategori tersedia: {$catList}"]);
-
-            // Sample item 1: 2 variants
-            fputcsv($out, ['IT', 'LTDL', 'Laptop Dell XPS 13', 'Laptop Dell XPS 13', '戴尔笔记本',
-                'Laptop for office use', 'unit', '', '', '5',
-                'no', '', '', 'yes', 'yes', 'Dell', 'XPS 13 9310', '13.4 inch', 'Silver', 'yes']);
-            fputcsv($out, ['IT', 'LTDL', '', '', '', '', '', '', '', '',
-                '', '', '', '', '', 'Dell', 'XPS 13 9310', '13.4 inch', 'Black', 'yes']);
-
-            // Sample item 2: with cooldown, no variant attributes
-            fputcsv($out, ['ATK', 'BLPT', 'Ballpoint Pen', 'Pulpen', '圆珠笔',
-                '', 'pcs', 'box', '12', '100',
-                'yes', '30', 'employee_id', 'no', 'yes', '', '', '', '', 'yes']);
-
-            // Sample item 3: PPE, no variant
-            fputcsv($out, ['PPE', 'HLMT', 'Safety Helmet', 'Helm Safety', '安全帽',
-                'Standard safety helmet', 'unit', '', '', '20',
-                'no', '', '', 'no', 'yes', '', '', 'L', 'Yellow', 'yes']);
-
-            fclose($out);
-        }, 'items_import_template.csv', [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return Excel::download(new ItemsImportTemplateExport, 'items_import_template.xlsx');
     }
 
     // ── Import ────────────────────────────────────────────────────────────
@@ -373,60 +281,60 @@ class ItemController extends Controller
     public function import(Request $request): RedirectResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
         ]);
 
         $categories = ItemCategory::where('is_active', true)->get()->keyBy('code');
 
-        $handle = fopen($request->file('file')->getRealPath(), 'r');
+        // Read file using maatwebsite/excel — handles CSV, XLS, XLSX automatically
+        try {
+            $reader = new ItemsImportReader();
+            Excel::import($reader, $request->file('file'));
+            $allSheetRows = $reader->rows ?? collect();
+        } catch (\Exception $e) {
+            return back()->withErrors(['file' => 'Tidak dapat membaca file. Pastikan format CSV/XLS/XLSX benar.']);
+        }
 
-        // Strip UTF-8 BOM if present
-        $bom = fread($handle, 3);
-        if ($bom !== "\xEF\xBB\xBF") rewind($handle);
-
-        // Read and normalize header (strip hints like "(yes/no)")
-        $rawHeader = fgetcsv($handle);
-        if (!$rawHeader) {
-            fclose($handle);
+        if ($allSheetRows->isEmpty()) {
             return back()->withErrors(['file' => 'File kosong atau format tidak valid.']);
         }
-        $header = array_map(fn ($h) => trim(preg_replace('/\s*\(.*?\)\s*/', '', $h)), $rawHeader);
-        $col    = array_flip($header);
 
-        // Helper: get column value safely
-        $get = fn (array $row, string $key, string $default = ''): string =>
-            trim($row[$col[$key] ?? PHP_INT_MAX] ?? $default);
+        // First row = headers; normalize (strip hints like "(yes/no)")
+        $rawHeader = $allSheetRows->first()->toArray();
+        $header    = array_map(fn ($h) => trim(preg_replace('/\s*\(.*?\)\s*/', '', (string) $h)), $rawHeader);
+        $col       = array_flip($header);
 
-        // Read all data rows, skip comment/empty rows
-        $allRows = [];
-        $rowNum  = 2;
-        while (($row = fgetcsv($handle)) !== false) {
-            if (!array_filter($row) || str_starts_with(trim($row[0] ?? ''), '#')) {
-                $rowNum++;
-                continue;
-            }
-            $allRows[] = ['data' => $row, 'num' => $rowNum++];
-        }
-        fclose($handle);
+        // Helper: get column value safely (arrow fn auto-captures $col)
+        $get = fn (Collection $row, string $key, string $default = ''): string =>
+            trim((string) ($row->get($col[$key] ?? -1) ?? $default));
 
-        if (empty($allRows)) {
+        // Data rows: skip header row, skip empty/comment rows
+        $dataRows = $allSheetRows->skip(1)->values()->filter(function ($row) {
+            $first = trim((string) ($row->first() ?? ''));
+            if (str_starts_with($first, '#')) return false;
+            return $row->filter(fn ($v) => $v !== null && $v !== '')->isNotEmpty();
+        })->values();
+
+        if ($dataRows->isEmpty()) {
             return back()->withErrors(['file' => 'Tidak ada baris data dalam file.']);
         }
 
         // Group rows by item key (category_code + part_suffix)
-        // Rows with blank category/suffix = continuation variant of previous item
+        // Rows with same key = additional variants for that item
         $groups     = [];
         $currentKey = null;
+        $rowNum     = 2;
 
-        foreach ($allRows as $r) {
-            $catCode = strtoupper($get($r['data'], 'category_code'));
-            $suffix  = strtoupper(preg_replace('/[^A-Z0-9]/', '', $get($r['data'], 'part_suffix')));
+        foreach ($dataRows as $row) {
+            $rowNum++;
+            $catCode = strtoupper($get($row, 'category_code'));
+            $suffix  = strtoupper(preg_replace('/[^A-Z0-9]/', '', $get($row, 'part_suffix')));
 
             if ($catCode && $suffix) {
                 $currentKey = "{$catCode}|{$suffix}";
                 if (!isset($groups[$currentKey])) {
                     $groups[$currentKey] = [
-                        'itemRow'     => $r,
+                        'itemRow'     => ['data' => $row, 'num' => $rowNum],
                         'variantRows' => [],
                         'catCode'     => $catCode,
                         'suffix'      => $suffix,
@@ -435,7 +343,7 @@ class ItemController extends Controller
             }
 
             if ($currentKey !== null) {
-                $groups[$currentKey]['variantRows'][] = $r;
+                $groups[$currentKey]['variantRows'][] = ['data' => $row, 'num' => $rowNum];
             }
         }
 
@@ -450,7 +358,6 @@ class ItemController extends Controller
                 $row    = $itemRow['data'];
                 $rowNum = $itemRow['num'];
 
-                // Validate category
                 if (!isset($categories[$catCode])) {
                     $errors[] = "Row {$rowNum}: Kategori '{$catCode}' tidak ditemukan.";
                     continue;
@@ -458,25 +365,23 @@ class ItemController extends Controller
                 $category   = $categories[$catCode];
                 $partNumber = "WBN-{$category->prefix}-{$suffix}";
 
-                // Validate required fields
                 $nameEn  = $get($row, 'name_en');
                 $baseUom = strtoupper($get($row, 'base_uom'));
-                if (!$nameEn) { $errors[] = "Row {$rowNum}: name_en wajib diisi."; continue; }
+                if (!$nameEn)  { $errors[] = "Row {$rowNum}: name_en wajib diisi."; continue; }
                 if (!$baseUom) { $errors[] = "Row {$rowNum}: base_uom wajib diisi."; continue; }
 
-                // Check duplicate part_number
                 if (Item::where('part_number', $partNumber)->exists()) {
                     $errors[] = "Row {$rowNum}: Part number '{$partNumber}' sudah ada, dilewati.";
                     continue;
                 }
 
-                $hasCooldown    = in_array(strtolower($get($row, 'has_cooldown')), ['yes', '1', 'true']);
-                $photoRequired  = in_array(strtolower($get($row, 'photo_required')), ['yes', '1', 'true']);
-                $isActive       = !in_array(strtolower($get($row, 'is_active')), ['no', '0', 'false']);
-                $altUom         = strtoupper($get($row, 'alt_uom')) ?: null;
-                $altConv        = $get($row, 'alt_uom_conversion') !== '' ? (float) $get($row, 'alt_uom_conversion') : null;
-                $cooldownDays   = $get($row, 'cooldown_days') !== '' ? (int) $get($row, 'cooldown_days') : null;
-                $trackBy        = $get($row, 'cooldown_track_by') ?: 'employee_id';
+                $hasCooldown   = in_array(strtolower($get($row, 'has_cooldown')),   ['yes', '1', 'true']);
+                $photoRequired = in_array(strtolower($get($row, 'photo_required')), ['yes', '1', 'true']);
+                $isActive      = !in_array(strtolower($get($row, 'is_active')),     ['no', '0', 'false']);
+                $altUom        = strtoupper($get($row, 'alt_uom')) ?: null;
+                $altConv       = $get($row, 'alt_uom_conversion') !== '' ? (float) $get($row, 'alt_uom_conversion') : null;
+                $cooldownDays  = $get($row, 'cooldown_days') !== '' ? (int) $get($row, 'cooldown_days') : null;
+                $trackBy       = $get($row, 'cooldown_track_by') ?: 'employee_id';
 
                 $item = Item::create([
                     'category_id'        => $category->id,
@@ -497,17 +402,15 @@ class ItemController extends Controller
                 ]);
                 $createdItems++;
 
-                // Create variants
                 $seq = 0;
                 foreach ($group['variantRows'] as $vr) {
-                    $vd     = $vr['data'];
-                    $brand  = $get($vd, 'variant_brand') ?: null;
-                    $model  = $get($vd, 'variant_model') ?: null;
-                    $size   = $get($vd, 'variant_size') ?: null;
-                    $color  = $get($vd, 'variant_color') ?: null;
+                    $vd    = $vr['data'];
+                    $brand = $get($vd, 'variant_brand') ?: null;
+                    $model = $get($vd, 'variant_model') ?: null;
+                    $size  = $get($vd, 'variant_size')  ?: null;
+                    $color = $get($vd, 'variant_color') ?: null;
                     $vActive = !in_array(strtolower($get($vd, 'variant_is_active')), ['no', '0', 'false']);
 
-                    // Skip variant-only rows with no data at all
                     if (!$brand && !$model && !$size && !$color && $seq > 0) continue;
 
                     $seq++;
