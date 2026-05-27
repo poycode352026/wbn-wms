@@ -289,8 +289,25 @@ function closeDrop() { openDropId.value = null }
 onMounted(() => document.addEventListener('click', closeDrop))
 onUnmounted(() => document.removeEventListener('click', closeDrop))
 
-// ── Photo preview ─────────────────────────────────────────────────────────
+// ── Photo preview & lightbox ──────────────────────────────────────────────
 const photoPreview = ref(null)
+const lightboxSrc  = ref(null)
+
+// ── Import modal ──────────────────────────────────────────────────────────
+const showImportModal = ref(false)
+const importFileRef   = ref(null)
+const importForm = useForm({ file: null })
+
+function submitImport() {
+    importForm.post(route('items.import'), {
+        forceFormData: true,
+        onSuccess: () => {
+            showImportModal.value = false
+            importForm.reset()
+            if (importFileRef.value) importFileRef.value.value = ''
+        },
+    })
+}
 
 // ── Badge colors ──────────────────────────────────────────────────────────
 const BADGE_COLORS = [
@@ -366,6 +383,14 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
           <option value="inactive">{{ $t('status.inactive') }}</option>
         </select>
         <button class="btn-primary" @click="openAdd" type="button">+ {{ $t('im.addItem') }}</button>
+        <a :href="route('items.export')" class="btn-ghost" style="white-space:nowrap;display:inline-flex;align-items:center;gap:5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </a>
+        <button class="btn-ghost" @click="showImportModal = true" type="button" style="white-space:nowrap;display:inline-flex;align-items:center;gap:5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import
+        </button>
       </div>
 
       <div class="table-wrap">
@@ -763,7 +788,8 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
             </div>
             <div v-for="v in variantItem?.variants" :key="v.id"
               style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;margin-bottom:4px;background:var(--surface-2)">
-              <img v-if="v.photo_path" :src="v.photo_path" class="var-thumb" alt="photo" />
+              <img v-if="v.photo_path" :src="v.photo_path" class="var-thumb" alt="photo"
+                style="cursor:zoom-in" @click="lightboxSrc = v.photo_path" />
               <div v-else class="var-thumb-ph">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </div>
@@ -825,14 +851,16 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
                 </label>
                 <div class="photo-upload-row">
                   <img v-if="editingVariant?.photo_path && !varForm.photo"
-                    :src="editingVariant.photo_path" class="photo-thumb" alt="current photo" />
-                  <div v-else-if="!editingVariant?.photo_path && !varForm.photo" class="photo-placeholder">
+                    :src="editingVariant.photo_path" class="photo-thumb" alt="current photo"
+                    style="cursor:zoom-in" @click="lightboxSrc = editingVariant.photo_path" />
+                  <div v-else-if="!varForm.photo" class="photo-placeholder">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                   </div>
-                  <img v-else-if="varForm.photo" :src="photoPreview" class="photo-thumb" alt="preview" />
+                  <img v-else :src="photoPreview" class="photo-thumb" alt="preview"
+                    style="cursor:zoom-in" @click="lightboxSrc = photoPreview" />
                   <label class="btn-upload">
                     <input type="file" accept="image/*" style="display:none"
-                      @change="e => { varForm.photo = e.target.files[0]; photoPreview = URL.createObjectURL(e.target.files[0]) }" />
+                      @change="e => { varForm.photo = e.target.files[0]; photoPreview.value = URL.createObjectURL(e.target.files[0]) }" />
                     {{ varForm.photo ? 'Change' : (editingVariant?.photo_path ? 'Replace' : 'Upload') }}
                   </label>
                 </div>
@@ -852,6 +880,82 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
               </div>
             </form>
           </div>
+
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- ── Lightbox ─────────────────────────────────────────────────────── -->
+  <Teleport to="body">
+    <div v-if="lightboxSrc" class="lightbox-bd" @click="lightboxSrc = null">
+      <button class="lightbox-close" @click.stop="lightboxSrc = null">✕</button>
+      <img :src="lightboxSrc" class="lightbox-img" @click.stop />
+    </div>
+  </Teleport>
+
+  <!-- ── Import Modal ──────────────────────────────────────────────────── -->
+  <Teleport to="body">
+    <div v-if="showImportModal" class="modal-backdrop" @click.self="showImportModal = false">
+      <div class="modal-box" style="max-width:480px">
+        <div class="modal-header">
+          <h2>Import Items dari CSV</h2>
+          <button class="icon-btn" @click="showImportModal = false" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Instructions -->
+          <div class="import-steps">
+            <div class="import-step">
+              <span class="step-num">1</span>
+              <div>
+                <div style="font-weight:600;font-size:13px">Download template CSV</div>
+                <div style="font-size:12px;opacity:.55">Template berisi kolom lengkap + contoh data</div>
+              </div>
+            </div>
+            <div class="import-step">
+              <span class="step-num">2</span>
+              <div style="font-size:13px;font-weight:600">Isi data item & variant</div>
+            </div>
+            <div class="import-step">
+              <span class="step-num">3</span>
+              <div style="font-size:13px;font-weight:600">Upload dan submit</div>
+            </div>
+          </div>
+
+          <a :href="route('items.importTemplate')"
+            class="btn-ghost" style="display:inline-flex;align-items:center;gap:7px;margin-bottom:18px;width:100%;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Template CSV
+          </a>
+
+          <div class="import-format">
+            <div style="font-size:11px;font-weight:700;opacity:.5;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Format penting</div>
+            <ul style="font-size:12px;opacity:.7;margin:0;padding-left:16px;line-height:1.7">
+              <li><code>has_cooldown</code>, <code>is_active</code> → <code>yes</code> / <code>no</code></li>
+              <li><code>cooldown_track_by</code> → <code>lv_number</code> atau <code>employee_id</code></li>
+              <li>Item dengan beberapa variant → baris terpisah, <code>category_code</code> & <code>part_suffix</code> sama</li>
+              <li>Baris ke-2 dst: kolom item boleh dikosongkan</li>
+            </ul>
+          </div>
+
+          <form @submit.prevent="submitImport" style="margin-top:16px">
+            <div class="form-group">
+              <label class="form-label">File CSV <span class="req">*</span></label>
+              <input ref="importFileRef" type="file" accept=".csv,.txt"
+                class="form-input"
+                @change="e => { importForm.file = e.target.files[0] }" />
+              <div style="font-size:11px;opacity:.4;margin-top:3px">Maks 5 MB · format .csv</div>
+              <div v-if="importForm.errors.file" class="form-err">{{ importForm.errors.file }}</div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-ghost" @click="showImportModal = false">Batal</button>
+              <button type="submit" class="btn-primary"
+                :disabled="importForm.processing || !importForm.file">
+                {{ importForm.processing ? 'Mengimpor...' : 'Import' }}
+              </button>
+            </div>
+          </form>
 
         </div>
       </div>
@@ -1004,6 +1108,39 @@ textarea.form-input { resize: vertical; }
 
 .req { color: #f87171; }
 .pager-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; opacity: .7; }
+
+/* ── lightbox ────────────────────────────────────────────────────────── */
+.lightbox-bd {
+  position: fixed; inset: 0; background: rgba(0,0,0,.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; cursor: zoom-out;
+}
+.lightbox-img {
+  max-width: 90vw; max-height: 90vh; object-fit: contain;
+  border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,.6); cursor: default;
+}
+.lightbox-close {
+  position: absolute; top: 18px; right: 22px;
+  background: rgba(255,255,255,.12); color: #fff;
+  border: none; width: 38px; height: 38px; border-radius: 50%;
+  font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.lightbox-close:hover { background: rgba(255,255,255,.25); }
+
+/* ── import modal ────────────────────────────────────────────────────── */
+.import-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.import-step { display: flex; align-items: flex-start; gap: 10px; }
+.step-num {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--orange-500);
+  color: #fff; font-size: 11px; font-weight: 800; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+}
+.import-format {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+}
+.import-format code { font-family: monospace; font-size: 11px; }
 
 /* ── part number composer ────────────────────────────────────────────── */
 .pn-compose-row { display: flex; align-items: center; gap: 0; }

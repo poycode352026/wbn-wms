@@ -31,6 +31,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/departments/{department}/remove-admin', [DepartmentController::class, 'removeAdmin'])->name('departments.removeAdmin');
     Route::resource('warehouses', WarehouseController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('locations', LocationController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('/items/export', [ItemController::class, 'export'])->name('items.export');
+    Route::get('/items/import-template', [ItemController::class, 'importTemplate'])->name('items.importTemplate');
+    Route::post('/items/import', [ItemController::class, 'import'])->name('items.import');
     Route::resource('items', ItemController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::post('/items/{item}/variants', [ItemController::class, 'storeVariant'])->name('items.storeVariant');
     Route::post('/items/{item}/variants/{itemVariant}', [ItemController::class, 'updateVariant'])->name('items.updateVariant');
