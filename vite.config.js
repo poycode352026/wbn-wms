@@ -6,6 +6,9 @@ export default defineConfig({
     server: {
         host: 'localhost',
     },
+    optimizeDeps: {
+        include: ['qrcode'],
+    },
     plugins: [
         laravel({
             input: 'resources/js/app.js',

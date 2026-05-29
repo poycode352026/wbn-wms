@@ -122,11 +122,16 @@ async function openQr(wh) {
     qrDataUrl.value = ''
     qrLoading.value = true
     qrOpen.value    = true
-    const url = `${window.location.origin}/warehouse/${wh.code}`
-    qrDataUrl.value = await QRCode.toDataURL(url, {
-        width: 320, margin: 2,
-        color: { dark: '#111827', light: '#FFFFFF' },
-    })
+    try {
+        const url = `${window.location.origin}/warehouse/${wh.code}`
+        const svg = await QRCode.toString(url, {
+            type: 'svg', width: 320, margin: 2,
+            color: { dark: '#111827', light: '#FFFFFF' },
+        })
+        qrDataUrl.value = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+    } catch (e) {
+        console.error('QR generation failed:', e)
+    }
     qrLoading.value = false
 }
 

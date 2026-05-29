@@ -136,11 +136,16 @@ async function openQr(loc) {
     qrDataUrl.value = ''
     qrLoading.value = true
     qrOpen.value    = true
-    const url = `${window.location.origin}/rack/${loc.code}`
-    qrDataUrl.value = await QRCode.toDataURL(url, {
-        width: 320, margin: 2,
-        color: { dark: '#111827', light: '#FFFFFF' },
-    })
+    try {
+        const url = `${window.location.origin}/rack/${loc.code}`
+        const svg = await QRCode.toString(url, {
+            type: 'svg', width: 320, margin: 2,
+            color: { dark: '#111827', light: '#FFFFFF' },
+        })
+        qrDataUrl.value = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+    } catch (e) {
+        console.error('QR generation failed:', e)
+    }
     qrLoading.value = false
 }
 
@@ -199,8 +204,9 @@ async function startBulkPrint() {
         if (!locs.length) { alert(t('lm.bulkEmpty')); return }
 
         const withQr = await Promise.all(locs.map(async loc => {
-            const url     = `${window.location.origin}/rack/${loc.code}`
-            const dataUrl = await QRCode.toDataURL(url, { width: 200, margin: 1, color: { dark: '#111827', light: '#FFFFFF' } })
+            const url = `${window.location.origin}/rack/${loc.code}`
+            const svg = await QRCode.toString(url, { type: 'svg', width: 200, margin: 1, color: { dark: '#111827', light: '#FFFFFF' } })
+            const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
             return { ...loc, qrDataUrl: dataUrl }
         }))
 
