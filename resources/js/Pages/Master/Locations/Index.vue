@@ -3,6 +3,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { router, useForm, Link } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import QRCode from 'qrcode'
 
 const { t } = useI18n()
 
@@ -52,11 +53,16 @@ const dropdownStyle = ref({})
 function openMenu(event, loc) {
     event.stopPropagation()
     if (activeMenu.value === loc.id) { closeMenu(); return }
-    const rect = event.currentTarget.getBoundingClientRect()
-    dropdownStyle.value = {
-        top:   (rect.bottom + 6) + 'px',
-        right: (window.innerWidth - rect.right) + 'px',
+    const rect       = event.currentTarget.getBoundingClientRect()
+    const DROPDOWN_H = 180
+    const spaceBelow = window.innerHeight - rect.bottom
+    const style      = { right: (window.innerWidth - rect.right) + 'px' }
+    if (spaceBelow < DROPDOWN_H + 10) {
+        style.bottom = (window.innerHeight - rect.top + 6) + 'px'
+    } else {
+        style.top = (rect.bottom + 6) + 'px'
     }
+    dropdownStyle.value = style
     activeMenu.value = loc.id
     menuLoc.value    = loc
 }
@@ -118,6 +124,140 @@ function toggleActive(loc) {
     }, { preserveScroll: true })
 }
 
+// ── QR Code ─────────────────────────────────────────────────────────────────
+const qrOpen    = ref(false)
+const qrLoc     = ref(null)
+const qrDataUrl = ref('')
+const qrLoading = ref(false)
+
+async function openQr(loc) {
+    closeMenu()
+    qrLoc.value     = loc
+    qrDataUrl.value = ''
+    qrLoading.value = true
+    qrOpen.value    = true
+    const url = `${window.location.origin}/rack/${loc.code}`
+    qrDataUrl.value = await QRCode.toDataURL(url, {
+        width: 320, margin: 2,
+        color: { dark: '#111827', light: '#FFFFFF' },
+    })
+    qrLoading.value = false
+}
+
+function closeQr() { qrOpen.value = false; qrLoc.value = null }
+
+function printLabel() {
+    const win = window.open('', '_blank', 'width=400,height=520')
+    const wh  = qrLoc.value?.warehouse
+    win.document.write(`
+<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>Label Rak ${qrLoc.value?.code}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box }
+  body { font-family: system-ui, sans-serif; background:#fff; color:#111827 }
+  .label {
+    width: 320px; margin: 20px auto;
+    border: 2px solid #e5e7eb; border-radius: 16px;
+    padding: 24px; text-align: center;
+  }
+  .wh { font-size: 11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+        color:#6b7280; margin-bottom:8px }
+  .code { font-size: 28px; font-weight: 900; letter-spacing:-.02em; margin-bottom:4px }
+  .name { font-size: 13px; color:#6b7280; margin-bottom:16px }
+  img { width: 220px; height: 220px; display:block; margin: 0 auto 16px }
+  .hint { font-size: 11px; color:#9ca3af; margin-top:8px }
+  .divider { border: none; border-top:1px solid #e5e7eb; margin: 16px 0 }
+  .app { font-size:10px; color:#d1d5db; margin-top:8px }
+</style>
+</head><body>
+<div class="label">
+  <div class="wh">${wh ? wh.code + ' — ' + wh.name : ''}</div>
+  <div class="code">${qrLoc.value?.code}</div>
+  <div class="name">${qrLoc.value?.name}</div>
+  <hr class="divider">
+  <img src="${qrDataUrl.value}" alt="QR" />
+  <div class="hint">${t('lm.scanHint')}</div>
+  <div class="app">WBN Warehouse Management System</div>
+</div>
+<script>window.onload=()=>{ window.print(); window.onafterprint=()=>window.close() }<\/script>
+</body></html>`)
+    win.document.close()
+}
+
+// ── Bulk Print ────────────────────────────────────────────────────────────────
+const bulkOpen    = ref(false)
+const bulkWh      = ref('')
+const bulkLoading = ref(false)
+
+async function startBulkPrint() {
+    if (!bulkWh.value) return
+    bulkLoading.value = true
+    try {
+        const resp = await fetch(`/locations/labels-data?warehouse_id=${encodeURIComponent(bulkWh.value)}`)
+        const locs = await resp.json()
+        if (!locs.length) { alert(t('lm.bulkEmpty')); return }
+
+        const withQr = await Promise.all(locs.map(async loc => {
+            const url     = `${window.location.origin}/rack/${loc.code}`
+            const dataUrl = await QRCode.toDataURL(url, { width: 200, margin: 1, color: { dark: '#111827', light: '#FFFFFF' } })
+            return { ...loc, qrDataUrl: dataUrl }
+        }))
+
+        const selectedWh  = props.warehouses?.find(w => w.id == bulkWh.value)
+        const labelsHtml  = withQr.map(loc => `
+            <div class="label">
+                <div class="wh-lbl">${loc.warehouse ? loc.warehouse.code + ' — ' + loc.warehouse.name : ''}</div>
+                <div class="code-lbl">${loc.code}</div>
+                <div class="name-lbl">${loc.name}</div>
+                <img src="${loc.qrDataUrl}" alt="QR ${loc.code}" />
+                <div class="hint-lbl">${t('lm.scanHint')}</div>
+                <div class="app-lbl">WBN Warehouse Management System</div>
+            </div>`).join('')
+
+        const win = window.open('', '_blank', 'width=960,height=700')
+        win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>Label Rak — ${selectedWh ? selectedWh.code + ' ' + selectedWh.name : 'Semua'}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#fff;color:#111827}
+.header{padding:14px 24px;border-bottom:2px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:14px;font-weight:700;color:#374151}
+.header p{font-size:12px;color:#6b7280}
+.grid{display:flex;flex-wrap:wrap;gap:16px;padding:24px;justify-content:flex-start}
+.label{width:260px;border:2px solid #e5e7eb;border-radius:16px;padding:18px;text-align:center;page-break-inside:avoid}
+.wh-lbl{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6b7280;margin-bottom:6px}
+.code-lbl{font-size:22px;font-weight:900;letter-spacing:-.02em;margin-bottom:3px}
+.name-lbl{font-size:11px;color:#6b7280;margin-bottom:12px}
+img{width:180px;height:180px;display:block;margin:0 auto 10px}
+.hint-lbl{font-size:10px;color:#9ca3af}
+.app-lbl{font-size:9px;color:#d1d5db;margin-top:4px}
+@media print{
+    .header{display:none}
+    .grid{gap:0;padding:0}
+    .label{border-radius:0;border-width:1px;width:50%}
+    @page{margin:8mm;size:A4}
+}
+</style>
+</head><body>
+<div class="header">
+    <h1>Label Rak — ${selectedWh ? selectedWh.code + ' — ' + selectedWh.name : 'Semua Warehouse'}</h1>
+    <p>${withQr.length} rak</p>
+</div>
+<div class="grid">${labelsHtml}</div>
+<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}<\/script>
+</body></html>`)
+        win.document.close()
+        bulkOpen.value = false
+    } catch (err) {
+        alert(t('lm.bulkError'))
+        console.error(err)
+    } finally {
+        bulkLoading.value = false
+    }
+}
+
 const WH_COLORS = [
     { bg:'rgba(59,130,246,.15)',  color:'#60a5fa' },
     { bg:'rgba(16,185,129,.15)', color:'#34d399' },
@@ -138,10 +278,16 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
         <h1 class="pt">{{ $t('lm.title') }}</h1>
         <p class="ps">{{ $t('lm.total', { n: stats?.total ?? 0 }) }}</p>
       </div>
-      <button class="btn-add" @click="openAdd" type="button">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-        {{ $t('lm.addRack') }}
-      </button>
+      <div class="ph-actions">
+        <button class="btn-print-all" @click="bulkOpen = true" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          {{ $t('lm.printLabelBtn') }}
+        </button>
+        <button class="btn-add" @click="openAdd" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          {{ $t('lm.addRack') }}
+        </button>
+      </div>
     </div>
 
     <!-- stat cards -->
@@ -257,6 +403,11 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
     <!-- teleported dropdown -->
     <Teleport to="body">
       <div v-if="activeMenu !== null && menuLoc" class="md-tp" :style="dropdownStyle" @click.stop>
+        <button class="mi mi-qr" @click="openQr(menuLoc)" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
+          {{ $t('lm.qrMenuBtn') }}
+        </button>
+        <div class="msep"></div>
         <button class="mi" @click="openEdit(menuLoc)" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"/></svg>
           {{ $t('btn.edit') }}
@@ -270,6 +421,99 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
           {{ $t('btn.delete') }}
         </button>
+      </div>
+    </Teleport>
+
+    <!-- Bulk print modal -->
+    <Teleport to="body">
+      <div v-if="bulkOpen" class="qr-backdrop" @click.self="bulkOpen = false">
+        <div class="qr-modal">
+          <div class="qr-head">
+            <div>
+              <div class="qr-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                {{ $t('lm.bulkTitle') }}
+              </div>
+              <div class="qr-sub">{{ $t('lm.bulkSub') }}</div>
+            </div>
+            <button class="qr-close" @click="bulkOpen = false" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="qr-body">
+            <div class="fg full" style="margin-bottom:14px">
+              <label class="fl" style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px;display:block">Warehouse</label>
+              <select v-model="bulkWh" class="fi fis" style="width:100%">
+                <option value="">{{ $t('lm.bulkWhPh') }}</option>
+                <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.code }} — {{ wh.name }}</option>
+              </select>
+            </div>
+            <div class="bulk-info" v-if="bulkWh">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {{ $t('lm.bulkInfo') }}
+            </div>
+            <div class="qr-actions" style="margin-top:16px">
+              <button class="qr-btn-view" style="cursor:pointer;border:0;" @click="bulkOpen = false" type="button">{{ $t('btn.cancel') }}</button>
+              <button class="qr-btn-print" @click="startBulkPrint" :disabled="!bulkWh || bulkLoading" type="button">
+                <svg v-if="!bulkLoading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                <svg v-else class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                {{ bulkLoading ? $t('lm.bulkProcessing') : $t('lm.bulkPrint') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- QR modal -->
+    <Teleport to="body">
+      <div v-if="qrOpen" class="qr-backdrop" @click.self="closeQr">
+        <div class="qr-modal">
+          <!-- header -->
+          <div class="qr-head">
+            <div>
+              <div class="qr-title">{{ $t('lm.qrModalTitle', { code: qrLoc?.code }) }}</div>
+              <div class="qr-sub">{{ qrLoc?.name }}</div>
+            </div>
+            <button class="qr-close" @click="closeQr" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- QR -->
+          <div class="qr-body">
+            <div class="qr-label-preview">
+              <div class="qr-wh-badge" v-if="qrLoc?.warehouse">
+                {{ qrLoc.warehouse.code }} — {{ qrLoc.warehouse.name }}
+              </div>
+              <div class="qr-code-big">{{ qrLoc?.code }}</div>
+              <div class="qr-name-sm">{{ qrLoc?.name }}</div>
+              <div class="qr-img-wrap">
+                <div v-if="qrLoading" class="qr-loading">
+                  <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                </div>
+                <img v-else :src="qrDataUrl" alt="QR" class="qr-img" />
+              </div>
+              <div class="qr-hint">{{ $t('lm.qrHint') }}</div>
+            </div>
+
+            <!-- actions -->
+            <div class="qr-actions">
+              <a
+                :href="`/rack/${qrLoc?.code}`"
+                target="_blank"
+                class="qr-btn-view"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                {{ $t('lm.qrBtnView') }}
+              </a>
+              <button class="qr-btn-print" @click="printLabel" :disabled="qrLoading" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                {{ $t('lm.qrBtnPrint') }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </Teleport>
 
@@ -302,7 +546,7 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
             </div>
             <div class="fg half">
               <label class="fl">{{ $t('lm.code') }} <span class="req">*</span></label>
-              <input v-model="form.code" class="fi" :class="{'fi-e':form.errors.code}" type="text" :placeholder="$t('lm.codePh')" autocomplete="off" style="text-transform:uppercase"/>
+              <input v-model="form.code" class="fi" :class="{'fi-e':form.errors.code}" type="text" :placeholder="$t('lm.codePh')" autocomplete="off"/>
               <p v-if="form.errors.code" class="fe">{{ form.errors.code }}</p>
             </div>
             <div class="fg half">
@@ -387,6 +631,7 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
 .md-tp{position:fixed;min-width:168px;background:#1e2535;border:1px solid #2a3550;border-radius:10px;padding:6px;z-index:9999;box-shadow:0 12px 36px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04)}
 .mi{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:7px;cursor:pointer;font-size:12.5px;color:#94a3b8;background:transparent;border:0;width:100%;text-align:left;font-family:inherit;transition:all 160ms}
 .mi:hover{background:rgba(59,130,246,.08);color:#e6edf7}.mi-del{color:#ef4444}.mi-del:hover{background:rgba(239,68,68,.1);color:#ef4444}
+.mi-qr{color:#fb923c}.mi-qr:hover{background:rgba(249,115,22,.1);color:#fdba74}
 .msep{height:1px;background:#1e2535;margin:4px 0}
 .pb{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-top:1px solid var(--border);flex-wrap:wrap;gap:12px}
 .pi{font-size:12.5px;color:var(--fg-2)}.pl{display:flex;gap:4px;flex-wrap:wrap}
@@ -426,4 +671,37 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
 @keyframes mOut{from{transform:none;opacity:1}to{transform:translateY(-10px) scale(.97);opacity:0}}
 @media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.mo{padding:0;align-items:flex-end}.modal{border-radius:16px 16px 0 0;max-height:92vh;max-width:100%}.mb2{grid-template-columns:1fr}.fg.half{grid-column:1/-1}}
+
+/* ── QR Modal ──────────────────────────────────────────────────────────── */
+.qr-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.qr-modal{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;width:100%;max-width:380px;box-shadow:var(--shadow-lg);overflow:hidden;color:var(--fg)}
+.qr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+.qr-title{font-size:15px;font-weight:700;color:var(--fg)}
+.qr-sub{font-size:12px;color:var(--fg-2);margin-top:2px}
+.qr-close{appearance:none;border:1px solid var(--border);background:transparent;width:30px;height:30px;border-radius:7px;cursor:pointer;color:var(--fg-2);display:grid;place-items:center;flex-shrink:0;transition:background 150ms}
+.qr-close:hover{background:var(--hover)}
+.qr-body{padding:20px}
+.qr-label-preview{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;margin-bottom:16px}
+.qr-wh-badge{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-dim);margin-bottom:6px}
+.qr-code-big{font-size:26px;font-weight:900;letter-spacing:-.02em;color:var(--fg)}
+.qr-name-sm{font-size:12px;color:var(--fg-2);margin-top:2px;margin-bottom:14px}
+.qr-img-wrap{display:flex;align-items:center;justify-content:center;min-height:220px}
+.qr-img{width:220px;height:220px;border-radius:8px;display:block}
+.qr-loading{display:flex;align-items:center;justify-content:center;color:var(--fg-dim)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.qr-hint{font-size:11px;color:var(--fg-dim);margin-top:10px}
+.qr-actions{display:flex;gap:8px}
+.qr-btn-view,.qr-btn-print{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:background 150ms,border-color 150ms;text-decoration:none;border:1px solid transparent}
+.qr-btn-view{background:rgba(59,130,246,.12);color:#60a5fa;border-color:rgba(59,130,246,.25)}
+.qr-btn-view:hover{background:rgba(59,130,246,.2)}
+.qr-btn-print{background:rgba(249,115,22,.12);color:#f97316;border-color:rgba(249,115,22,.25)}
+.qr-btn-print:hover{background:rgba(249,115,22,.2)}
+.qr-btn-print:disabled{opacity:.5;cursor:default}
+/* ── Page header actions ─────────────────────────────────────────────────── */
+.ph-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn-print-all{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:9px;border:1px solid rgba(99,102,241,.3);cursor:pointer;background:rgba(99,102,241,.1);color:#818cf8;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap;transition:all 160ms}
+.btn-print-all:hover{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5)}
+/* ── Bulk print info ─────────────────────────────────────────────────────── */
+.bulk-info{display:flex;align-items:flex-start;gap:6px;padding:10px 12px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.18);border-radius:8px;font-size:12px;color:var(--fg-2);line-height:1.5}
 </style>

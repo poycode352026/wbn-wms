@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\StockInputExport;
+use App\Imports\StockInputImportReader;
 use App\Models\ItemVariant;
 use App\Models\Location;
 use App\Models\StockLedger;
@@ -10,6 +12,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StockInputController extends Controller
 {
@@ -23,16 +27,25 @@ class StockInputController extends Controller
                 'stockLedgers.location.warehouse:id,code,name',
             ])
             ->where('is_active', true)
-            ->when($request->search, fn ($q, $s) =>
-                $q->where(fn ($q2) =>
-                    $q2->where('sku', 'like', "%{$s}%")
-                       ->orWhereHas('item', fn ($qi) =>
-                           $qi->where('part_number', 'like', "%{$s}%")
-                              ->orWhere('name_en', 'like', "%{$s}%")
-                              ->orWhere('name_id', 'like', "%{$s}%")
-                        )
-                )
-            )
+            ->when($request->search, function ($q, $s) {
+                $tokens = array_filter(explode(' ', trim($s)));
+                foreach ($tokens as $token) {
+                    $t = "%{$token}%";
+                    $q->where(fn ($q2) =>
+                        $q2->where('sku',   'like', $t)
+                           ->orWhere('brand', 'like', $t)
+                           ->orWhere('model', 'like', $t)
+                           ->orWhere('size',  'like', $t)
+                           ->orWhere('color', 'like', $t)
+                           ->orWhereHas('item', fn ($qi) =>
+                               $qi->where('part_number', 'like', $t)
+                                  ->orWhere('name_en',   'like', $t)
+                                  ->orWhere('name_id',   'like', $t)
+                                  ->orWhere('name_zh',   'like', $t)
+                           )
+                    );
+                }
+            })
             ->when($request->filled('category_id'), fn ($q) =>
                 $q->whereHas('item', fn ($qi) =>
                     $qi->where('category_id', $request->category_id)
@@ -153,5 +166,32 @@ class StockInputController extends Controller
     {
         $stockLedger->delete();
         return back()->with('success', 'Stock entry removed.');
+    }
+
+    public function export(): BinaryFileResponse
+    {
+        $filename = 'stock-input-' . now()->format('Ymd-His') . '.xlsx';
+        return Excel::download(new StockInputExport(), $filename);
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:5120'],
+        ]);
+
+        $reader = new StockInputImportReader();
+        Excel::import($reader, $request->file('file'));
+
+        $msg = "Import selesai: {$reader->imported} baris berhasil";
+        if ($reader->skipped > 0) {
+            $msg .= ", {$reader->skipped} dilewati";
+        }
+        if (!empty($reader->errors)) {
+            $msg .= '. Error: ' . implode(' | ', array_slice($reader->errors, 0, 5));
+            return back()->with('error', $msg);
+        }
+
+        return back()->with('success', $msg . '.');
     }
 }

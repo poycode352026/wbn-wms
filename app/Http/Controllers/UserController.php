@@ -71,6 +71,10 @@ class UserController extends Controller
 
     public function update(UserUpdateRequest $request, User $user): RedirectResponse
     {
+        if ($user->role === 'super_admin') {
+            return back()->withErrors(['update' => 'Super admin account cannot be modified.']);
+        }
+
         $data = $request->validated();
 
         if (empty($data['password'])) {
@@ -84,6 +88,10 @@ class UserController extends Controller
 
     public function destroy(User $user): RedirectResponse
     {
+        if ($user->role === 'super_admin') {
+            return back()->withErrors(['delete' => 'Super admin account cannot be deleted.']);
+        }
+
         if ($user->id === auth()->id()) {
             return back()->withErrors(['delete' => 'Cannot delete your own account.']);
         }
@@ -91,5 +99,40 @@ class UserController extends Controller
         $user->delete();
 
         return back()->with('success', 'User deleted successfully.');
+    }
+
+    public function impersonate(User $user): RedirectResponse
+    {
+        // Only super_admin can impersonate
+        if (auth()->user()->role !== 'super_admin') {
+            abort(403);
+        }
+        // Cannot impersonate super_admin
+        if ($user->role === 'super_admin') {
+            return back()->with('error', 'Cannot impersonate super admin account.');
+        }
+        // Don't impersonate yourself
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'Cannot impersonate yourself.');
+        }
+        // Store original user id in session
+        session(['impersonating_from' => auth()->id()]);
+        auth()->login($user);
+        return redirect()->route('dashboard')->with('success', 'Now viewing as ' . $user->name);
+    }
+
+    public function stopImpersonate(): RedirectResponse
+    {
+        $originalId = session('impersonating_from');
+        if (!$originalId) {
+            return redirect()->route('dashboard');
+        }
+        $originalUser = User::find($originalId);
+        if (!$originalUser) {
+            return redirect()->route('dashboard');
+        }
+        session()->forget('impersonating_from');
+        auth()->login($originalUser);
+        return redirect()->route('users.index')->with('success', 'Returned to your account.');
     }
 }

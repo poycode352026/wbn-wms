@@ -21,12 +21,17 @@ class WarehouseController extends Controller
 
         $warehouses = Warehouse::query()
             ->withCount('locations')
-            ->when($request->search, fn ($q, $s) =>
-                $q->where(fn ($q2) =>
-                    $q2->where('name', 'like', "%{$s}%")
-                       ->orWhere('code', 'like', "%{$s}%")
-                       ->orWhere('location', 'like', "%{$s}%")
-                ))
+            ->when($request->search, function ($q, $s) {
+                $tokens = array_filter(explode(' ', trim($s)));
+                foreach ($tokens as $token) {
+                    $t = "%{$token}%";
+                    $q->where(fn ($q2) =>
+                        $q2->where('name',     'like', $t)
+                           ->orWhere('code',     'like', $t)
+                           ->orWhere('location', 'like', $t)
+                    );
+                }
+            })
             ->when($request->filled('status'), fn ($q) =>
                 $q->where('is_active', $request->status === 'active')
             )
@@ -73,5 +78,72 @@ class WarehouseController extends Controller
         }
         $warehouse->delete();
         return back()->with('success', 'Warehouse deleted successfully.');
+    }
+
+    public function warehouseView(string $code): Response
+    {
+        $warehouse = Warehouse::where('code', $code)->firstOrFail();
+
+        // Load ALL racks (empty ones included) — total rack count must reflect reality
+        $locations = $warehouse->locations()
+            ->orderBy('code')
+            ->with([
+                'stockLedgers'                        => fn ($q) => $q->where('qty_on_hand', '>', 0),
+                'stockLedgers.variant:id,sku,brand,model,size,color,item_id,photo_path',
+                'stockLedgers.variant.item:id,name_id,name_en,name_zh,base_uom,part_number,category_id',
+                'stockLedgers.variant.item.category:id,code',
+            ])
+            ->get()
+            ->map(fn ($l) => [
+                'id'    => $l->id,
+                'code'  => $l->code,
+                'name'  => $l->name,
+                'items' => $l->stockLedgers->map(fn ($sl) => [
+                    'id'             => $sl->id,
+                    'qty_on_hand'    => (float) $sl->qty_on_hand,
+                    'qty_reserved'   => (float) $sl->qty_reserved,
+                    'qty_available'  => (float) $sl->qty_available,
+                    'variant' => $sl->variant ? [
+                        'id'         => $sl->variant->id,
+                        'sku'        => $sl->variant->sku,
+                        'brand'      => $sl->variant->brand,
+                        'model'      => $sl->variant->model,
+                        'size'       => $sl->variant->size,
+                        'color'      => $sl->variant->color,
+                        'photo_path' => $sl->variant->photo_path
+                            ? asset('storage/' . $sl->variant->photo_path)
+                            : null,
+                        'item' => $sl->variant->item ? [
+                            'name_id'     => $sl->variant->item->name_id,
+                            'name_en'     => $sl->variant->item->name_en,
+                            'name_zh'     => $sl->variant->item->name_zh,
+                            'part_number' => $sl->variant->item->part_number,
+                            'base_uom'    => $sl->variant->item->base_uom,
+                            'category'    => $sl->variant->item->category
+                                ? ['code' => $sl->variant->item->category->code]
+                                : null,
+                        ] : null,
+                    ] : null,
+                ])->values(),
+            ])
+            ->values();
+
+        $totalRacks = $locations->count();                                          // ALL racks
+        $totalItems = $locations->sum(fn ($l) => count($l['items']));              // only those with stock
+        $totalQty   = $locations->sum(fn ($l) => collect($l['items'])->sum('qty_on_hand'));
+
+        return Inertia::render('Warehouse/View', [
+            'warehouse' => [
+                'id'       => $warehouse->id,
+                'code'     => $warehouse->code,
+                'name'     => $warehouse->name,
+                'location' => $warehouse->location,
+            ],
+            'locations'  => $locations,
+            'totalItems' => $totalItems,
+            'totalQty'   => $totalQty,
+            'totalRacks' => $totalRacks,
+            'scannedAt'  => now()->format('d M Y, H:i'),
+        ]);
     }
 }

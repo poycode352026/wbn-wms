@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
                 'error'     => $request->session()->get('error'),
                 'newItemId' => $request->session()->get('newItemId'),
             ],
+            'impersonating' => $request->session()->has('impersonating_from'),
         ];
     }
 }

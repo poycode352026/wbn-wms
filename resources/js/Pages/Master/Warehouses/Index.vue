@@ -3,6 +3,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { router, useForm, Link } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import QRCode from 'qrcode'
 
 const { t } = useI18n()
 
@@ -49,11 +50,16 @@ const dropdownStyle = ref({})
 function openMenu(event, wh) {
     event.stopPropagation()
     if (activeMenu.value === wh.id) { closeMenu(); return }
-    const rect = event.currentTarget.getBoundingClientRect()
-    dropdownStyle.value = {
-        top:   (rect.bottom + 6) + 'px',
-        right: (window.innerWidth - rect.right) + 'px',
+    const rect       = event.currentTarget.getBoundingClientRect()
+    const DROPDOWN_H = 160
+    const spaceBelow = window.innerHeight - rect.bottom
+    const style      = { right: (window.innerWidth - rect.right) + 'px' }
+    if (spaceBelow < DROPDOWN_H + 10) {
+        style.bottom = (window.innerHeight - rect.top + 6) + 'px'
+    } else {
+        style.top = (rect.bottom + 6) + 'px'
     }
+    dropdownStyle.value = style
     activeMenu.value = wh.id
     menuWh.value     = wh
 }
@@ -102,6 +108,68 @@ function toggleActive(wh) {
     router.put(route('warehouses.update', wh.id), {
         code: wh.code, name: wh.name, location: wh.location, is_active: !wh.is_active,
     }, { preserveScroll: true })
+}
+
+// ── QR Code ─────────────────────────────────────────────────────────────────
+const qrOpen    = ref(false)
+const qrWh      = ref(null)
+const qrDataUrl = ref('')
+const qrLoading = ref(false)
+
+async function openQr(wh) {
+    closeMenu()
+    qrWh.value      = wh
+    qrDataUrl.value = ''
+    qrLoading.value = true
+    qrOpen.value    = true
+    const url = `${window.location.origin}/warehouse/${wh.code}`
+    qrDataUrl.value = await QRCode.toDataURL(url, {
+        width: 320, margin: 2,
+        color: { dark: '#111827', light: '#FFFFFF' },
+    })
+    qrLoading.value = false
+}
+
+function closeQr() { qrOpen.value = false; qrWh.value = null }
+
+function printLabel() {
+    const win = window.open('', '_blank', 'width=400,height=520')
+    win.document.write(`
+<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>Label Gudang ${qrWh.value?.code}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box }
+  body { font-family: system-ui, sans-serif; background:#fff; color:#111827 }
+  .label {
+    width: 320px; margin: 20px auto;
+    border: 2px solid #e5e7eb; border-radius: 16px;
+    padding: 24px; text-align: center;
+  }
+  .type { font-size: 10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+          color:#3b82f6; margin-bottom:6px }
+  .code { font-size: 28px; font-weight: 900; letter-spacing:-.02em; margin-bottom:4px }
+  .name { font-size: 13px; color:#6b7280; margin-bottom:4px }
+  .loc  { font-size: 11px; color:#9ca3af; margin-bottom:16px }
+  img { width: 220px; height: 220px; display:block; margin: 0 auto 16px }
+  .hint { font-size: 11px; color:#9ca3af; margin-top:8px }
+  .divider { border: none; border-top:1px solid #e5e7eb; margin: 16px 0 }
+  .app { font-size:10px; color:#d1d5db; margin-top:8px }
+</style>
+</head><body>
+<div class="label">
+  <div class="type">WAREHOUSE</div>
+  <div class="code">${qrWh.value?.code}</div>
+  <div class="name">${qrWh.value?.name}</div>
+  <div class="loc">${qrWh.value?.location ?? ''}</div>
+  <hr class="divider">
+  <img src="${qrDataUrl.value}" alt="QR" />
+  <div class="hint">${t('wm_qr.scanHint')}</div>
+  <div class="app">WBN Warehouse Management System</div>
+</div>
+<script>window.onload=()=>{ window.print(); window.onafterprint=()=>window.close() }<\/script>
+</body></html>`)
+    win.document.close()
 }
 </script>
 <template>
@@ -228,6 +296,11 @@ function toggleActive(wh) {
     <!-- teleported dropdown -->
     <Teleport to="body">
       <div v-if="activeMenu !== null && menuWh" class="md-tp" :style="dropdownStyle" @click.stop>
+        <button class="mi mi-qr" @click="openQr(menuWh)" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
+          {{ $t('wm_qr.menuBtn') }}
+        </button>
+        <div class="msep"></div>
         <button class="mi" @click="openEdit(menuWh)" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"/></svg>
           {{ $t('btn.edit') }}
@@ -241,6 +314,48 @@ function toggleActive(wh) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
           {{ $t('btn.delete') }}
         </button>
+      </div>
+    </Teleport>
+
+    <!-- QR modal -->
+    <Teleport to="body">
+      <div v-if="qrOpen" class="qr-backdrop" @click.self="closeQr">
+        <div class="qr-modal">
+          <div class="qr-head">
+            <div>
+              <div class="qr-title">{{ $t('wm_qr.modalTitle', { code: qrWh?.code }) }}</div>
+              <div class="qr-sub">{{ qrWh?.name }}</div>
+            </div>
+            <button class="qr-close" @click="closeQr" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="qr-body">
+            <div class="qr-label-preview">
+              <div class="qr-type-badge">WAREHOUSE</div>
+              <div class="qr-code-big">{{ qrWh?.code }}</div>
+              <div class="qr-name-sm">{{ qrWh?.name }}</div>
+              <div class="qr-loc-sm" v-if="qrWh?.location">{{ qrWh.location }}</div>
+              <div class="qr-img-wrap">
+                <div v-if="qrLoading" class="qr-loading">
+                  <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                </div>
+                <img v-else :src="qrDataUrl" alt="QR" class="qr-img" />
+              </div>
+              <div class="qr-hint">{{ $t('wm_qr.hint') }}</div>
+            </div>
+            <div class="qr-actions">
+              <a :href="`/warehouse/${qrWh?.code}`" target="_blank" class="qr-btn-view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                {{ $t('wm_qr.btnView') }}
+              </a>
+              <button class="qr-btn-print" @click="printLabel" :disabled="qrLoading" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                {{ $t('wm_qr.btnPrint') }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </Teleport>
 
@@ -385,4 +500,29 @@ function toggleActive(wh) {
 @keyframes mOut{from{transform:none;opacity:1}to{transform:translateY(-10px) scale(.97);opacity:0}}
 @media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.mo{padding:0;align-items:flex-end}.modal{border-radius:16px 16px 0 0;max-height:92vh;max-width:100%}.mb2{grid-template-columns:1fr}.fg.half{grid-column:1/-1}}
+/* QR dropdown item */
+.mi-qr{color:#60a5fa}.mi-qr:hover{background:rgba(59,130,246,.1);color:#93c5fd}
+/* QR modal */
+.qr-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.qr-modal{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;width:100%;max-width:380px;box-shadow:var(--shadow-lg);overflow:hidden;color:var(--fg)}
+.qr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+.qr-title{font-size:15px;font-weight:700;color:var(--fg)}
+.qr-sub{font-size:12px;color:var(--fg-2);margin-top:2px}
+.qr-close{appearance:none;border:1px solid var(--border);background:transparent;width:30px;height:30px;border-radius:7px;cursor:pointer;color:var(--fg-2);display:grid;place-items:center;flex-shrink:0;transition:background 150ms}.qr-close:hover{background:var(--hover)}
+.qr-body{padding:20px}
+.qr-label-preview{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;margin-bottom:16px}
+.qr-type-badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#60a5fa;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.2);padding:2px 10px;border-radius:999px;margin-bottom:8px}
+.qr-code-big{font-size:26px;font-weight:900;letter-spacing:-.02em;color:var(--fg)}
+.qr-name-sm{font-size:12px;color:var(--fg-2);margin-top:2px}
+.qr-loc-sm{font-size:11px;color:var(--fg-dim);margin-top:2px;margin-bottom:12px}
+.qr-img-wrap{display:flex;align-items:center;justify-content:center;min-height:220px;margin:12px 0 0}
+.qr-img{width:220px;height:220px;border-radius:8px;display:block}
+.qr-loading{display:flex;align-items:center;justify-content:center;color:var(--fg-dim)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.qr-hint{font-size:11px;color:var(--fg-dim);margin-top:10px}
+.qr-actions{display:flex;gap:8px}
+.qr-btn-view,.qr-btn-print{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:background 150ms;text-decoration:none;border:1px solid transparent}
+.qr-btn-view{background:rgba(59,130,246,.12);color:#60a5fa;border-color:rgba(59,130,246,.25)}.qr-btn-view:hover{background:rgba(59,130,246,.2)}
+.qr-btn-print{background:rgba(249,115,22,.12);color:#f97316;border-color:rgba(249,115,22,.25)}.qr-btn-print:hover{background:rgba(249,115,22,.2)}.qr-btn-print:disabled{opacity:.5;cursor:default}
 </style>

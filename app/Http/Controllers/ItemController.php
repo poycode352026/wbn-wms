@@ -35,13 +35,25 @@ class ItemController extends Controller
                 'category:id,code,prefix,name_id,name_en,name_zh',
                 'variants' => fn ($q) => $q->orderBy('id'),
             ])
-            ->when($request->search, fn ($q, $s) =>
-                $q->where(fn ($q2) =>
-                    $q2->where('part_number', 'like', "%{$s}%")
-                       ->orWhere('name_en', 'like', "%{$s}%")
-                       ->orWhere('name_id', 'like', "%{$s}%")
-                       ->orWhere('name_zh', 'like', "%{$s}%")
-                ))
+            ->when($request->search, function ($q, $s) {
+                $tokens = array_filter(explode(' ', trim($s)));
+                foreach ($tokens as $token) {
+                    $t = "%{$token}%";
+                    $q->where(fn ($q2) =>
+                        $q2->where('part_number', 'like', $t)
+                           ->orWhere('name_en',   'like', $t)
+                           ->orWhere('name_id',   'like', $t)
+                           ->orWhere('name_zh',   'like', $t)
+                           ->orWhereHas('variants', fn ($qv) =>
+                               $qv->where('sku',   'like', $t)
+                                  ->orWhere('brand', 'like', $t)
+                                  ->orWhere('model', 'like', $t)
+                                  ->orWhere('size',  'like', $t)
+                                  ->orWhere('color', 'like', $t)
+                           )
+                    );
+                }
+            })
             ->when($request->category_id, fn ($q) =>
                 $q->where('category_id', $request->category_id)
             )

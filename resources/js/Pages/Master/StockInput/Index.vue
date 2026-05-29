@@ -18,6 +18,32 @@ const props = defineProps({
 // ── flash ──────────────────────────────────────────────────────────────────
 const flash = computed(() => page.props.flash ?? {})
 
+// ── import modal ────────────────────────────────────────────────────────────
+const importOpen = ref(false)
+const importForm = useForm({ file: null })
+const importFileRef = ref(null)
+const importFileName = ref('')
+
+function onImportFile(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    importForm.file = f
+    importFileName.value = f.name
+}
+
+function submitImport() {
+    importForm.post(route('stock-input.import'), {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            importOpen.value = false
+            importForm.reset()
+            importFileName.value = ''
+            router.reload({ only: ['variants', 'stats'], preserveScroll: true })
+        },
+    })
+}
+
 // ── filters ────────────────────────────────────────────────────────────────
 const search     = ref(props.filters.search      ?? '')
 const categoryId = ref(props.filters.category_id ?? '')
@@ -240,6 +266,16 @@ const STAT_COLORS = [
       <option value="">{{ $t('si.filterCat') }}</option>
       <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.code }} · {{ catName(c) }}</option>
     </select>
+    <div class="si-tb-actions">
+      <a class="si-btn-export" :href="route('stock-input.export')" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ $t('si.exportBtn') }}
+      </a>
+      <button class="si-btn-import" type="button" @click="importOpen = true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><polyline points="17 8 12 3 7 8"/></svg>
+        {{ $t('si.importBtn') }}
+      </button>
+    </div>
   </div>
 
   <!-- ── TABLE ───────────────────────────────────────────────────────────── -->
@@ -325,6 +361,59 @@ const STAT_COLORS = [
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
       <img :src="lightboxSrc" class="si-lb-img" @click.stop />
+    </div>
+
+    <!-- import modal -->
+    <div v-if="importOpen" class="si-backdrop" @click.self="importOpen = false">
+      <div class="si-modal" style="max-width:460px">
+        <div class="si-modal-head">
+          <div>
+            <div class="si-modal-title">{{ $t('si.importTitle') }}</div>
+            <div class="si-modal-sub">{{ $t('si.importSub') }}</div>
+          </div>
+          <button class="si-modal-close" @click="importOpen = false" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="si-modal-body">
+          <!-- info box -->
+          <div class="si-import-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <div>{{ $t('si.importInfo') }}</div>
+          </div>
+          <!-- download template hint -->
+          <div class="si-import-hint">
+            {{ $t('si.importTplHint') }}
+            <a :href="route('stock-input.export')" target="_blank" class="si-import-dl">{{ $t('si.importTplDl') }}</a>
+          </div>
+          <!-- file upload -->
+          <form @submit.prevent="submitImport">
+            <div
+              class="si-drop-zone"
+              :class="{ 'has-file': importFileName }"
+              @click="importFileRef.click()"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span v-if="importFileName" class="si-drop-name">{{ importFileName }}</span>
+              <span v-else>{{ $t('si.importDropzone') }}</span>
+              <input
+                ref="importFileRef"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                style="display:none"
+                @change="onImportFile"
+              />
+            </div>
+            <div v-if="importForm.errors.file" class="si-err" style="margin-top:6px">{{ importForm.errors.file }}</div>
+            <div class="si-modal-foot">
+              <button type="button" class="si-cancel" @click="importOpen = false">{{ $t('btn.cancel') }}</button>
+              <button type="submit" class="si-save" :disabled="!importFileName || importForm.processing">
+                {{ importForm.processing ? $t('si.importing') : $t('si.importNow') }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
 
     <div v-if="modalOpen" class="si-backdrop" @click.self="closeModal">
@@ -506,9 +595,9 @@ const STAT_COLORS = [
 .si-flash-ok { background:rgba(16,185,129,.12); color:#34d399; border:1px solid rgba(16,185,129,.25) }
 .si-flash-err { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.25) }
 .si-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px }
-.si-modal { background:var(--surface); border:1px solid var(--border-2); border-radius:16px; box-shadow:var(--shadow-lg); width:100%; max-width:680px; max-height:90vh; overflow-y:auto }
+.si-modal { background:var(--surface); border:1px solid var(--border-2); border-radius:16px; box-shadow:var(--shadow-lg); width:100%; max-width:680px; max-height:90vh; overflow-y:auto; color:var(--fg) }
 .si-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 24px 16px; border-bottom:1px solid var(--border) }
-.si-modal-title { font-size:16px; font-weight:700 }
+.si-modal-title { font-size:16px; font-weight:700; color:var(--fg) }
 .si-modal-sub { font-size:12.5px; color:var(--fg-2); margin-top:3px }
 .si-modal-close { appearance:none; border:1px solid var(--border); background:transparent; width:32px; height:32px; border-radius:7px; cursor:pointer; color:var(--fg-2); display:grid; place-items:center; flex-shrink:0; transition:background 180ms,color 180ms }
 .si-modal-close:hover { background:var(--hover); color:var(--fg) }
@@ -516,15 +605,15 @@ const STAT_COLORS = [
 .si-modal-body { padding:20px 24px }
 .si-variant-strip { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:18px; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
 .si-vs-sku { font-family:monospace; font-weight:700; color:var(--orange-500); font-size:13px }
-.si-vs-name { font-size:13px; font-weight:600 }
+.si-vs-name { font-size:13px; font-weight:600; color:var(--fg) }
 .si-vs-sep { color:var(--fg-dim) }
 .si-vs-detail { font-size:13px; color:var(--fg-2) }
-.si-vs-uom { font-size:13px; font-weight:700 }
+.si-vs-uom { font-size:13px; font-weight:700; color:var(--fg) }
 .si-sec-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--fg-dim); margin-bottom:10px }
 .si-entries { display:flex; flex-direction:column; gap:6px; margin-bottom:4px }
 .si-entry { display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 14px }
 .si-entry-loc { flex:1; display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0 }
-.si-entry-wh { font-size:13px; font-weight:600 }
+.si-entry-wh { font-size:13px; font-weight:600; color:var(--fg) }
 .si-entry-arr { width:12px; height:12px; color:var(--fg-dim); flex-shrink:0 }
 .si-entry-rack { font-size:12.5px; color:var(--fg-2) }
 .si-entry-qty { display:flex; align-items:baseline; gap:4px; flex-shrink:0 }
@@ -550,6 +639,53 @@ const STAT_COLORS = [
 .si-cancel:hover { background:var(--hover); color:var(--fg) }
 .si-save { padding:9px 20px; border-radius:8px; cursor:pointer; font-size:13.5px; font-weight:600; background:linear-gradient(180deg,var(--orange-400),var(--orange-500)); color:#fff; border:0; box-shadow:0 4px 10px -3px rgba(249,115,22,.5); transition:opacity 180ms }
 .si-save:disabled { opacity:.6; cursor:default }
+
+/* ── toolbar actions ─────────────────────────────────────────────────────── */
+.si-tb-actions { display:flex; gap:8px; margin-left:auto }
+.si-btn-export, .si-btn-import {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 14px; border-radius:8px; font-size:13px; font-weight:600;
+  cursor:pointer; transition:background 150ms, border-color 150ms; white-space:nowrap;
+  text-decoration:none;
+}
+.si-btn-export {
+  background:rgba(16,185,129,.12); color:#34d399;
+  border:1px solid rgba(16,185,129,.25);
+}
+.si-btn-export:hover { background:rgba(16,185,129,.2); border-color:rgba(16,185,129,.4) }
+.si-btn-export svg { width:14px; height:14px }
+.si-btn-import {
+  background:rgba(59,130,246,.12); color:#60a5fa;
+  border:1px solid rgba(59,130,246,.25);
+}
+.si-btn-import:hover { background:rgba(59,130,246,.2); border-color:rgba(59,130,246,.4) }
+.si-btn-import svg { width:14px; height:14px; transform:rotate(180deg) }
+
+/* ── import modal ────────────────────────────────────────────────────────── */
+.si-import-info {
+  display:flex; align-items:flex-start; gap:8px;
+  background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.2);
+  border-radius:8px; padding:12px 14px; font-size:12.5px;
+  color:var(--fg-2); line-height:1.5; margin-bottom:12px;
+}
+.si-import-info svg { color:#60a5fa; flex-shrink:0; margin-top:1px }
+.si-import-info code { background:var(--surface-3); padding:1px 5px; border-radius:4px; font-size:11.5px; color:var(--fg) }
+.si-import-hint { font-size:12.5px; color:var(--fg-2); margin-bottom:14px }
+.si-import-dl { color:var(--orange-500); font-weight:600; text-decoration:none }
+.si-import-dl:hover { text-decoration:underline }
+.si-drop-zone {
+  border:2px dashed var(--border-2); border-radius:10px;
+  padding:28px 20px; text-align:center; cursor:pointer;
+  font-size:13px; color:var(--fg-2);
+  transition:border-color 150ms, background 150ms;
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.si-drop-zone svg { width:28px; height:28px; color:var(--fg-dim) }
+.si-drop-zone:hover, .si-drop-zone.has-file {
+  border-color:var(--orange-500); background:rgba(249,115,22,.04);
+}
+.si-drop-zone.has-file { color:var(--fg) }
+.si-drop-name { font-weight:600; color:var(--orange-500) }
 
 /* ── UOM toggle ─────────────────────────────────────────────────────────── */
 .si-label { display:flex; align-items:center; gap:6px; flex-wrap:wrap }

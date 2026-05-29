@@ -1,0 +1,115 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\RolePermission;
+use Illuminate\Database\Seeder;
+
+class RolePermissionSeeder extends Seeder
+{
+    // [view, create, edit, delete, approve]   null = N/A
+    private const DEFAULTS = [
+        'super_admin' => [
+            'users'           => [1, 1, 1, 1, 1],
+            'departments'     => [1, 1, 1, 1, 1],
+            'permissions'     => [1, 1, 1, 1, 1],
+            'warehouses'      => [1, 1, 1, 1, 1],
+            'rackMgmt'        => [1, 1, 1, 1, 1],
+            'locations'       => [1, 1, 1, 1, 1],
+            'itemMaster'      => [1, 1, 1, 1, 1],
+            'goodsReceipt'    => [1, 1, 1, 1, 1],
+            'goodsIssue'      => [1, 1, 1, 1, 1],
+            'inventoryReport' => [1, 1, 1, 1, 1],
+            'transactionLog'  => [1, 1, 1, 1, 1],
+            'auditTrail'      => [1, 1, 1, 1, 1],
+        ],
+        'admin_dept' => [
+            'users'           => [0, 0, 0, 0, null],
+            'departments'     => [1, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [0, 0, 0, 0, null],
+            'rackMgmt'        => [0, 0, 0, 0, null],
+            'locations'       => [0, 0, 0, 0, null],
+            'itemMaster'      => [1, 0, 0, 0, null],
+            'goodsReceipt'    => [1, 0, 0, 0, null],
+            'goodsIssue'      => [1, 1, 0, 0, null],
+            'inventoryReport' => [1, 0, 0, 0, null],
+            'transactionLog'  => [1, 0, 0, 0, null],
+            'auditTrail'      => [0, 0, 0, 0, null],
+        ],
+        'manager_dept' => [
+            'users'           => [0, 0, 0, 0, null],
+            'departments'     => [1, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [0, 0, 0, 0, null],
+            'rackMgmt'        => [0, 0, 0, 0, null],
+            'locations'       => [0, 0, 0, 0, null],
+            'itemMaster'      => [1, 0, 0, 0, null],
+            'goodsReceipt'    => [1, 0, 0, 0, null],
+            'goodsIssue'      => [1, 0, 0, 0, 1],
+            'inventoryReport' => [1, 0, 0, 0, null],
+            'transactionLog'  => [1, 0, 0, 0, null],
+            'auditTrail'      => [0, 0, 0, 0, null],
+        ],
+        'warehouse_manager' => [
+            'users'           => [1, 0, 0, 0, null],
+            'departments'     => [1, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [1, 1, 1, 0, null],
+            'rackMgmt'        => [1, 1, 1, 0, null],
+            'locations'       => [1, 1, 1, 0, null],
+            'itemMaster'      => [1, 0, 1, 0, null],
+            'goodsReceipt'    => [1, 1, 0, 0, null],
+            'goodsIssue'      => [1, 0, 0, 0, 1],
+            'inventoryReport' => [1, 0, 0, 0, null],
+            'transactionLog'  => [1, 0, 0, 0, null],
+            'auditTrail'      => [1, 0, 0, 0, null],
+        ],
+        'supervisor' => [
+            'users'           => [0, 0, 0, 0, null],
+            'departments'     => [1, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [1, 0, 0, 0, null],
+            'rackMgmt'        => [1, 0, 0, 0, null],
+            'locations'       => [1, 0, 0, 0, null],
+            'itemMaster'      => [1, 0, 0, 0, null],
+            'goodsReceipt'    => [1, 1, 0, 0, 1],
+            'goodsIssue'      => [1, 0, 0, 0, 1],
+            'inventoryReport' => [1, 0, 0, 0, null],
+            'transactionLog'  => [1, 0, 0, 0, null],
+            'auditTrail'      => [0, 0, 0, 0, null],
+        ],
+        'operator' => [
+            'users'           => [0, 0, 0, 0, null],
+            'departments'     => [0, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [0, 0, 0, 0, null],
+            'rackMgmt'        => [0, 0, 0, 0, null],
+            'locations'       => [0, 0, 0, 0, null],
+            'itemMaster'      => [0, 0, 0, 0, null],
+            'goodsReceipt'    => [1, 0, 1, 0, null],
+            'goodsIssue'      => [1, 0, 1, 0, null],
+            'inventoryReport' => [0, 0, 0, 0, null],
+            'transactionLog'  => [0, 0, 0, 0, null],
+            'auditTrail'      => [0, 0, 0, 0, null],
+        ],
+    ];
+
+    public function run(): void
+    {
+        foreach (self::DEFAULTS as $role => $modules) {
+            foreach ($modules as $module => $perms) {
+                RolePermission::updateOrCreate(
+                    ['role' => $role, 'module' => $module],
+                    [
+                        'can_view'    => (bool) $perms[0],
+                        'can_create'  => (bool) $perms[1],
+                        'can_edit'    => (bool) $perms[2],
+                        'can_delete'  => (bool) $perms[3],
+                        'can_approve' => $perms[4],
+                    ]
+                );
+            }
+        }
+    }
+}

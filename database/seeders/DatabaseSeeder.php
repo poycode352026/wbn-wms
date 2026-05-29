@@ -11,33 +11,21 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $department = Department::create([
-            'code' => 'IT',
-            'name' => 'Information Technology',
-        ]);
-
+        // Super admin — no department
         User::create([
             'employee_id'       => '6260305001',
             'name'              => 'Super Admin',
-            'email'             => 'superadmin@wbn.co.id',
+            'email'             => 'superadmin@gmail.com',
             'email_verified_at' => now(),
             'password'          => Hash::make('password'),
             'role'              => 'super_admin',
             'is_active'         => true,
-            'department_id'     => $department->id,
+            'department_id'     => null,
         ]);
 
-        User::create([
-            'employee_id'       => '6260305002',
-            'name'              => 'Dea',
-            'email'             => 'dea@wbn.co.id',
-            'email_verified_at' => now(),
-            'password'          => Hash::make('password'),
-            'role'              => 'admin_dept',
-            'is_active'         => true,
-            'department_id'     => $department->id,
+        $this->call([
+            WarehouseAndCategorySeeder::class,
+            RolePermissionSeeder::class,
         ]);
-
-        $this->call(WarehouseAndCategorySeeder::class);
     }
 }

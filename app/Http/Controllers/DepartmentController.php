@@ -88,8 +88,8 @@ class DepartmentController extends Controller
         $request->validate(['user_id' => ['required', 'exists:users,id']]);
         User::where('id', $request->user_id)
             ->where('department_id', $department->id)
-            ->update(['department_id' => null]);
-        return back()->with('success', 'Admin removed from department.');
+            ->update(['department_id' => null, 'role' => 'user']);
+        return back()->with('success', 'Member removed from department.');
     }
 
     public function destroy(Department $department): RedirectResponse

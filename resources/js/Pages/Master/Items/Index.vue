@@ -399,11 +399,11 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
           <option value="inactive">{{ $t('status.inactive') }}</option>
         </select>
         <button class="btn-primary" @click="openAdd" type="button">+ {{ $t('im.addItem') }}</button>
-        <a :href="route('items.export')" class="btn-ghost" style="white-space:nowrap;display:inline-flex;align-items:center;gap:5px">
+        <a :href="route('items.export')" class="btn-export">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           {{ $t('im.exportBtn') }}
         </a>
-        <button class="btn-ghost" @click="showImportModal = true" type="button" style="white-space:nowrap;display:inline-flex;align-items:center;gap:5px">
+        <button class="btn-import" @click="showImportModal = true" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           {{ $t('im.importBtn') }}
         </button>
@@ -1040,6 +1040,22 @@ textarea.form-input { resize: vertical; }
   cursor: pointer; font-family: inherit; transition: background .15s, color .15s;
 }
 .btn-ghost:hover { background: var(--hover); color: var(--fg); }
+.btn-export, .btn-import {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; white-space: nowrap; text-decoration: none;
+  transition: background .15s, border-color .15s;
+}
+.btn-export {
+  background: rgba(16,185,129,.12); color: #34d399;
+  border: 1px solid rgba(16,185,129,.25);
+}
+.btn-export:hover { background: rgba(16,185,129,.2); border-color: rgba(16,185,129,.4); }
+.btn-import {
+  background: rgba(59,130,246,.12); color: #60a5fa;
+  border: 1px solid rgba(59,130,246,.25);
+}
+.btn-import:hover { background: rgba(59,130,246,.2); border-color: rgba(59,130,246,.4); }
 
 /* ── table ───────────────────────────────────────────────────────────── */
 .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }

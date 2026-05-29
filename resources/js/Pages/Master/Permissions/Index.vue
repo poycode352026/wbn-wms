@@ -1,10 +1,11 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
 const { t } = useI18n()
-const props = defineProps({ roleCounts: Object })
+const props = defineProps({ roleCounts: Object, rolePermissions: Object })
 
 const ROLES = [
     { code: 'super_admin',       locked: true  },
@@ -84,10 +85,19 @@ function getDefault(roleCode, itemKey) {
 const selectedRole = ref('super_admin')
 const permState    = ref({})
 const saved        = ref(false)
+const saving       = ref(false)
 
 function buildState(roleCode) {
+    const dbPerms = props.rolePermissions?.[roleCode] ?? {}
     const s = {}
-    MODULES.forEach(m => m.items.forEach(item => { s[item] = getDefault(roleCode, item) }))
+    MODULES.forEach(m => m.items.forEach(item => {
+        // Use DB value if it exists, otherwise fall back to hardcoded defaults
+        if (dbPerms[item] !== undefined) {
+            s[item] = [...dbPerms[item]]
+        } else {
+            s[item] = getDefault(roleCode, item)
+        }
+    }))
     return s
 }
 
@@ -108,12 +118,26 @@ const stats = computed(() => {
 })
 
 function saveChanges() {
-    saved.value = true
-    setTimeout(() => { saved.value = false }, 2500)
+    if (ROLES.find(r => r.code === selectedRole.value)?.locked) return
+    saving.value = true
+    router.post(route('permissions.save', selectedRole.value), {
+        permissions: permState.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            saved.value = true
+            saving.value = false
+            setTimeout(() => { saved.value = false }, 2500)
+        },
+        onError: () => { saving.value = false },
+    })
 }
 
 function resetToDefault() {
-    permState.value = buildState(selectedRole.value)
+    // Reset to hardcoded defaults (in-memory only — does not touch DB until Save is pressed)
+    const s = {}
+    MODULES.forEach(m => m.items.forEach(item => { s[item] = getDefault(selectedRole.value, item) }))
+    permState.value = s
     saved.value = false
 }
 
@@ -180,10 +204,12 @@ function userCount(code) {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
               {{ $t('pm.resetDefault') }}
             </button>
-            <button class="btn-save" :class="{ saved }" @click="saveChanges" type="button">
+            <button class="btn-save" :class="{ saved }" @click="saveChanges"
+              :disabled="saving || ROLES.find(r=>r.code===selectedRole)?.locked" type="button">
               <svg v-if="saved" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M20 6 9 17l-5-5"/></svg>
+              <svg v-else-if="saving" class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
               <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              {{ saved ? $t('pm.saved') : $t('pm.saveChanges') }}
+              {{ saved ? $t('pm.saved') : saving ? $t('pm.saving') : $t('pm.saveChanges') }}
             </button>
           </div>
         </div>
@@ -280,6 +306,9 @@ function userCount(code) {
 .btn-save{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:0;background:linear-gradient(180deg,var(--orange-400),var(--orange-500));color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 10px -3px rgba(249,115,22,.45);transition:all 160ms}
 .btn-save:hover{filter:brightness(1.06)}
 .btn-save.saved{background:linear-gradient(180deg,#34d399,var(--emerald));box-shadow:0 4px 10px -3px rgba(16,185,129,.45)}
+.btn-save:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.spin{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* stats row */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}

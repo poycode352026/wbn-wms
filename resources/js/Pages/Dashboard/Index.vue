@@ -10,6 +10,11 @@ const page  = usePage()
 const user  = computed(() => page.props.auth?.user ?? { name: 'User' })
 const firstName = computed(() => (user.value.name || 'User').split(' ')[0])
 
+const props = defineProps({
+    stats: Object,
+    warehouseStats: Array,
+})
+
 const greeting = computed(() => {
     const h = new Date().getHours()
     if (h < 12) return t('dash.goodMorning')
@@ -43,39 +48,35 @@ const dateStr = computed(() => {
       <div class="stat b-orange">
         <div class="stat-top">
           <div class="stat-ico orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8L12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
-          <span class="stat-trend up"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>+12</span>
         </div>
-        <div class="stat-num">1,284</div>
+        <div class="stat-num">{{ props.stats?.totalItems?.toLocaleString() ?? '0' }}</div>
         <div class="stat-lbl">{{ $t('dash.totalItems') }}</div>
-        <div class="stat-sub"><strong>+12</strong> {{ $t('dash.totalItemsSub') }}</div>
+        <div class="stat-sub">{{ $t('dash.totalItemsSub') }}</div>
       </div>
 
       <div class="stat b-blue">
         <div class="stat-top">
           <div class="stat-ico blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21V12h6v9"/></svg></div>
-          <span class="stat-trend up"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>+3.4%</span>
         </div>
-        <div class="stat-num">48,320<span class="stat-unit">{{ $t('dash.units') }}</span></div>
+        <div class="stat-num">{{ props.stats?.totalStockQty?.toLocaleString() ?? '0' }}<span class="stat-unit">{{ $t('dash.units') }}</span></div>
         <div class="stat-lbl">{{ $t('dash.totalStock') }}</div>
-        <div class="stat-sub">{{ $t('dash.totalStockSub', { n: 3 }) }}</div>
+        <div class="stat-sub">{{ $t('dash.totalStockSub', { n: props.stats?.totalWarehouses ?? 0 }) }}</div>
       </div>
 
       <div class="stat b-amber">
         <div class="stat-top">
           <div class="stat-ico amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
-          <span class="stat-trend up"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>+8</span>
         </div>
-        <div class="stat-num">47</div>
-        <div class="stat-lbl">{{ $t('dash.transToday') }}</div>
+        <div class="stat-num">{{ props.stats?.totalWarehouses ?? 0 }}</div>
+        <div class="stat-lbl">{{ $t('dash.totalWarehouses') }}</div>
         <div class="stat-sub">{{ $t('dash.transTodaySub', { gr: 23, gi: 18, tr: 6 }) }}</div>
       </div>
 
       <div class="stat b-red">
         <div class="stat-top">
           <div class="stat-ico red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-          <span class="stat-trend dn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>-2</span>
         </div>
-        <div class="stat-num">8 <span class="stat-unit">{{ $t('dash.items') }}</span></div>
+        <div class="stat-num">{{ props.stats?.lowStockCount ?? 0 }} <span class="stat-unit">{{ $t('dash.items') }}</span></div>
         <div class="stat-lbl">{{ $t('dash.lowStock') }}</div>
         <div class="stat-sub">{{ $t('dash.lowStockSub') }}</div>
       </div>
@@ -117,21 +118,20 @@ const dateStr = computed(() => {
           <span class="panel-title">{{ $t('dash.whCapacity') }}</span>
           <a class="panel-link" href="#">{{ $t('dash.manage') }}</a>
         </div>
-        <div class="wh-card">
-          <div class="wh-row"><div><div class="wh-name">WH-01 · Main Storage</div><div class="wh-loc">Halmahera Tengah · Block A</div></div><div class="wh-pct" style="color:#f59e0b">85%</div></div>
-          <div class="wh-bar warn"><i style="width:85%"></i></div>
-          <div class="wh-racks">A-01: <span class="warn">85%</span> · A-02: 42% · A-03: 67% · A-04: 71%</div>
-        </div>
-        <div class="wh-card">
-          <div class="wh-row"><div><div class="wh-name">WH-02 · Spare Parts</div><div class="wh-loc">Lelilef · Workshop Yard</div></div><div class="wh-pct" style="color:#ef4444">91%</div></div>
-          <div class="wh-bar crit"><i style="width:91%"></i></div>
-          <div class="wh-racks">B-01: <span class="crit">91%</span> · B-02: 88% · B-03: 76% · B-04: 54%</div>
-        </div>
-        <div class="wh-card" style="margin-bottom:0">
-          <div class="wh-row"><div><div class="wh-name">WH-03 · Heavy Equipment</div><div class="wh-loc">Pit-South · Open Yard</div></div><div class="wh-pct" style="color:#10b981">58%</div></div>
-          <div class="wh-bar"><i style="width:58%"></i></div>
-          <div class="wh-racks">C-01: 62% · C-02: 51% · C-03: 60%</div>
-        </div>
+        <template v-if="props.warehouseStats && props.warehouseStats.length">
+          <div v-for="(wh, wi) in props.warehouseStats" :key="wh.id"
+            class="wh-card" :style="wi === props.warehouseStats.length - 1 ? 'margin-bottom:0' : ''">
+            <div class="wh-row">
+              <div>
+                <div class="wh-name">{{ wh.code }} · {{ wh.name }}</div>
+                <div class="wh-loc">{{ wh.location ?? '—' }}</div>
+              </div>
+              <div class="wh-qty">{{ wh.totalQty.toLocaleString() }} {{ $t('dash.units') }}</div>
+            </div>
+            <div class="wh-racks">{{ $t('dash.racks') }}: {{ wh.rackCount }}</div>
+          </div>
+        </template>
+        <div v-else class="wh-empty">{{ $t('dash.noWarehouses') }}</div>
       </div>
 
       <div class="panel">
@@ -230,13 +230,15 @@ const dateStr = computed(() => {
 .wh-name{font-size:13.5px;font-weight:700;color:var(--fg)}
 .wh-loc{font-size:11.5px;color:var(--fg-2);margin-top:2px}
 .wh-pct{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.wh-qty{font-size:12.5px;font-weight:700;color:var(--fg-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .wh-bar{height:8px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:999px;overflow:hidden}
 .wh-bar > i{display:block;height:100%;border-radius:999px;background:#10b981;transition:width 380ms ease}
 .wh-bar.warn > i{background:#f59e0b}
 .wh-bar.crit > i{background:#ef4444}
-.wh-racks{margin-top:8px;font-size:11.5px;color:var(--fg-2);font-family:'JetBrains Mono',monospace;letter-spacing:.02em}
+.wh-racks{margin-top:4px;font-size:11.5px;color:var(--fg-2);font-family:'JetBrains Mono',monospace;letter-spacing:.02em}
 .wh-racks .crit{color:#ef4444}
 .wh-racks .warn{color:#f59e0b}
+.wh-empty{font-size:13px;color:var(--fg-2);text-align:center;padding:24px 0}
 .low-soh{color:#ef4444;font-weight:700}
 .reorder-btn{appearance:none;border:1px solid #f97316;background:transparent;color:#f97316;font-size:11px;font-weight:700;letter-spacing:.04em;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;transition:background 200ms ease,color 200ms ease}
 .reorder-btn:hover{background:#f97316;color:#fff}

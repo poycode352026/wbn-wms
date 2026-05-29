@@ -19,56 +19,62 @@ class WarehouseAndCategorySeeder extends Seeder
             'is_active' => true,
         ]);
 
-        $whL2 = Warehouse::create([
-            'code'      => 'WH-L2',
-            'name'      => 'Whitehouse Lantai 2',
-            'location'  => 'Gedung Whitehouse, Lantai 2 — Barang Office & Titipan KM17',
-            'is_active' => true,
-        ]);
+        // $whL2 = Warehouse::create([
+        //     'code'      => 'WH-L2',
+        //     'name'      => 'Whitehouse Lantai 2',
+        //     'location'  => 'Gedung Whitehouse, Lantai 2 — Barang Office & Titipan KM17',
+        //     'is_active' => true,
+        // ]);
 
-        $whL1 = Warehouse::create([
-            'code'      => 'WH-L1',
-            'name'      => 'Whitehouse Lantai 1',
-            'location'  => 'Gedung Whitehouse, Lantai 1 — Barang IT',
-            'is_active' => true,
-        ]);
+        // $whL1 = Warehouse::create([
+        //     'code'      => 'WH-L1',
+        //     'name'      => 'Whitehouse Lantai 1',
+        //     'location'  => 'Gedung Whitehouse, Lantai 1 — Barang IT',
+        //     'is_active' => true,
+        // ]);
 
         // ── Rack Locations ────────────────────────────────────────────────────
         // KM17 racks
-        $km17Racks = [
-            ['code' => 'A-01-01', 'name' => 'Row A · Shelf 01 · Level 01'],
-            ['code' => 'A-01-02', 'name' => 'Row A · Shelf 01 · Level 02'],
-            ['code' => 'A-02-01', 'name' => 'Row A · Shelf 02 · Level 01'],
-            ['code' => 'A-02-02', 'name' => 'Row A · Shelf 02 · Level 02'],
-            ['code' => 'B-01-01', 'name' => 'Row B · Shelf 01 · Level 01'],
-            ['code' => 'B-01-02', 'name' => 'Row B · Shelf 01 · Level 02'],
-            ['code' => 'B-02-01', 'name' => 'Row B · Shelf 02 · Level 01'],
-            ['code' => 'B-02-02', 'name' => 'Row B · Shelf 02 · Level 02'],
-        ];
+        $km17Racks = [];
+
+        for ($rack = 1; $rack <= 12; $rack++) {
+            foreach (range('A', 'F') as $shelf) {
+                for ($level = 1; $level <= 4; $level++) {
+
+                    $rackCode = str_pad($rack, 2, '0', STR_PAD_LEFT);
+                    $levelCode = str_pad($level, 2, '0', STR_PAD_LEFT);
+
+                    $km17Racks[] = [
+                        'code' => "RN-{$rackCode}-{$shelf}{$level}",
+                        'name' => "Rack Number {$rack} · Shelf {$shelf} · Level {$levelCode}",
+                    ];
+                }
+            }
+        }
         foreach ($km17Racks as $rack) {
             Location::create(array_merge($rack, ['warehouse_id' => $km17->id, 'is_active' => true]));
         }
 
-        // WH-L2 racks
-        $l2Racks = [
-            ['code' => 'L2-A-01', 'name' => 'Lantai 2 · Row A · Shelf 01'],
-            ['code' => 'L2-A-02', 'name' => 'Lantai 2 · Row A · Shelf 02'],
-            ['code' => 'L2-B-01', 'name' => 'Lantai 2 · Row B · Shelf 01'],
-            ['code' => 'L2-B-02', 'name' => 'Lantai 2 · Row B · Shelf 02'],
-        ];
-        foreach ($l2Racks as $rack) {
-            Location::create(array_merge($rack, ['warehouse_id' => $whL2->id, 'is_active' => true]));
-        }
+        // // WH-L2 racks
+        // $l2Racks = [
+        //     ['code' => 'L2-A-01', 'name' => 'Lantai 2 · Row A · Shelf 01'],
+        //     ['code' => 'L2-A-02', 'name' => 'Lantai 2 · Row A · Shelf 02'],
+        //     ['code' => 'L2-B-01', 'name' => 'Lantai 2 · Row B · Shelf 01'],
+        //     ['code' => 'L2-B-02', 'name' => 'Lantai 2 · Row B · Shelf 02'],
+        // ];
+        // foreach ($l2Racks as $rack) {
+        //     Location::create(array_merge($rack, ['warehouse_id' => $whL2->id, 'is_active' => true]));
+        // }
 
-        // WH-L1 racks
-        $l1Racks = [
-            ['code' => 'L1-A-01', 'name' => 'Lantai 1 · Row A · Shelf 01'],
-            ['code' => 'L1-A-02', 'name' => 'Lantai 1 · Row A · Shelf 02'],
-            ['code' => 'L1-B-01', 'name' => 'Lantai 1 · Row B · Shelf 01'],
-        ];
-        foreach ($l1Racks as $rack) {
-            Location::create(array_merge($rack, ['warehouse_id' => $whL1->id, 'is_active' => true]));
-        }
+        // // WH-L1 racks
+        // $l1Racks = [
+        //     ['code' => 'L1-A-01', 'name' => 'Lantai 1 · Row A · Shelf 01'],
+        //     ['code' => 'L1-A-02', 'name' => 'Lantai 1 · Row A · Shelf 02'],
+        //     ['code' => 'L1-B-01', 'name' => 'Lantai 1 · Row B · Shelf 01'],
+        // ];
+        // foreach ($l1Racks as $rack) {
+        //     Location::create(array_merge($rack, ['warehouse_id' => $whL1->id, 'is_active' => true]));
+        // }
 
         // ── Global Categories (not tied to any warehouse) ─────────────────────
         $categories = [

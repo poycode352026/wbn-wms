@@ -1,10 +1,13 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { router, useForm, Link } from '@inertiajs/vue3'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { router, useForm, Link, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
 const { t } = useI18n()
+const page = usePage()
+const currentUser = computed(() => page.props.auth?.user ?? {})
+const isSuperAdmin = computed(() => currentUser.value.role === 'super_admin')
 
 const props = defineProps({
     users: Object, departments: Array, filters: Object, stats: Object,
@@ -108,6 +111,10 @@ function toggleActive(u) {
         name: u.name, employee_id: u.employee_id, email: u.email, password: '', role: u.role,
         is_active: !u.is_active,
     }, { preserveScroll: true })
+}
+function impersonateUser(u) {
+    closeMenu()
+    router.post(route('users.impersonate', u.id))
 }
 
 const ROLES = ['super_admin','wh_admin','warehouse_manager','supervisor','operator','user']
@@ -248,7 +255,12 @@ function ini(name) { const p=(name||'?').trim().split(' '); return p.length>=2?p
                 <div><div class="un">{{ u.name }}</div><div class="ue">{{ u.email }}</div></div>
               </td>
               <td><span class="rb" :style="{ background: RC[u.role]?.bg, color: RC[u.role]?.color }">{{ RC[u.role]?.lbl }}</span></td>
-              <td class="tdd">{{ u.department ?? '—' }}</td>
+              <td class="tdd">
+                <template v-if="u.role === 'super_admin'">
+                  <span class="sys-dept">System Management</span>
+                </template>
+                <template v-else>{{ u.department ?? '—' }}</template>
+              </td>
               <td>
                 <span class="sb" :class="u.is_active ? 'sb-on' : 'sb-off'">
                   <i class="sd"></i>{{ u.is_active ? $t('status.active') : $t('status.inactive') }}
@@ -256,7 +268,10 @@ function ini(name) { const p=(name||'?').trim().split(' '); return p.length>=2?p
               </td>
               <td class="tdd tdsm">{{ u.last_login_at ?? $t('um.never') }}</td>
               <td class="td-a">
-                <button class="mb" @click="openMenu($event, u)" type="button"
+                <div v-if="u.role === 'super_admin'" class="mb-lock" title="Protected account">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <button v-else class="mb" @click="openMenu($event, u)" type="button"
                   :class="{ 'mb-open': activeMenu === u.id }">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                 </button>
@@ -285,6 +300,13 @@ function ini(name) { const p=(name||'?').trim().split(' '); return p.length>=2?p
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
           {{ menuUser.is_active ? $t('um.deactivate') : $t('um.activate') }}
         </button>
+        <template v-if="isSuperAdmin && menuUser.id !== currentUser.id">
+          <div class="msep"></div>
+          <button class="mi mi-imp" @click="impersonateUser(menuUser)" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Impersonate
+          </button>
+        </template>
         <div class="msep"></div>
         <button class="mi mi-del" @click="deleteUser(menuUser)" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
@@ -428,10 +450,13 @@ function ini(name) { const p=(name||'?').trim().split(' '); return p.length>=2?p
 .td-a{text-align:center;width:52px}
 .mb{appearance:none;border:1px solid transparent;background:transparent;width:30px;height:30px;border-radius:7px;cursor:pointer;color:var(--fg-dim);display:grid;place-items:center;transition:all 160ms;margin:0 auto}
 .mb:hover,.mb-open{background:var(--hover);border-color:var(--border);color:var(--fg)}
+.mb-lock{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;margin:0 auto;color:var(--fg-dim);opacity:.4;cursor:default}
+.sys-dept{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#fb923c;background:rgba(249,115,22,.1);padding:2px 8px;border-radius:5px;white-space:nowrap}
 /* teleported dropdown — rendered in <body>, always on top */
 .md-tp{position:fixed;min-width:168px;background:#1e2535;border:1px solid #2a3550;border-radius:10px;padding:6px;z-index:9999;box-shadow:0 12px 36px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04)}
 .mi{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:7px;cursor:pointer;font-size:12.5px;color:#94a3b8;background:transparent;border:0;width:100%;text-align:left;font-family:inherit;transition:all 160ms}
 .mi:hover{background:rgba(59,130,246,.08);color:#e6edf7}.mi-del{color:#ef4444}.mi-del:hover{background:rgba(239,68,68,.1);color:#ef4444}
+.mi-imp{color:#f59e0b}.mi-imp:hover{background:rgba(245,158,11,.1);color:#f59e0b}
 .msep{height:1px;background:#1e2535;margin:4px 0}
 
 /* pagination */

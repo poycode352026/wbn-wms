@@ -14,6 +14,19 @@ const initials = computed(() => {
 })
 const roleLabel = computed(() => t(`role.${user.value.role}`, user.value.role))
 
+// ── impersonate ───────────────────────────────────────────────────────
+const impersonating = computed(() => page.props.impersonating ?? false)
+const role = computed(() => user.value.role ?? 'operator')
+// Role helpers
+const can = {
+    system:    computed(() => role.value === 'super_admin'),
+    warehouse: computed(() => ['super_admin','warehouse_manager','supervisor'].includes(role.value)),
+    inventory: computed(() => ['super_admin','warehouse_manager','supervisor','operator'].includes(role.value)),
+    dept:      computed(() => ['super_admin','admin_dept','manager_dept'].includes(role.value)),
+}
+
+function stopImpersonate() { router.post(route('users.stop-impersonate')) }
+
 // ── theme ─────────────────────────────────────────────────────────────
 const isDark = ref(localStorage.getItem('theme') !== 'light')
 function toggleTheme() {
@@ -62,6 +75,13 @@ const dateStr = computed(() => {
 function logout() { router.post(route('logout')) }
 </script>
 <template>
+<div class="wms-app-wrap">
+  <!-- ── IMPERSONATE BANNER ─────────────────────────────────────────── -->
+  <div v-if="impersonating" class="impersonate-bar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span>Viewing as <strong>{{ user.name }}</strong> ({{ roleLabel }})</span>
+    <button class="imp-stop" type="button" @click="stopImpersonate">Return to Admin</button>
+  </div>
 <div class="wms-app">
 
   <!-- ── SIDEBAR ──────────────────────────────────────────────────────── -->
@@ -88,7 +108,7 @@ function logout() { router.post(route('logout')) }
         </Link>
       </div>
 
-      <div class="nav-section">
+      <div v-if="can.system.value" class="nav-section">
         <div class="nav-section-label">{{ $t('sec.system') }}</div>
         <Link class="nav-item" :class="{ active: route().current('users.*') }" :href="route('users.index')" :data-tip="$t('menu.users')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -104,7 +124,7 @@ function logout() { router.post(route('logout')) }
         </Link>
       </div>
 
-      <div class="nav-section">
+      <div v-if="can.warehouse.value" class="nav-section">
         <div class="nav-section-label">{{ $t('sec.warehouse') }}</div>
         <Link class="nav-item" :class="{ active: route().current('warehouses.*') }" :href="route('warehouses.index')" :data-tip="$t('menu.warehouses')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21V12h6v9"/></svg>
@@ -116,13 +136,13 @@ function logout() { router.post(route('logout')) }
         </Link>
       </div>
 
-      <div class="nav-section">
+      <div v-if="can.inventory.value" class="nav-section">
         <div class="nav-section-label">{{ $t('sec.inventory') }}</div>
-        <Link class="nav-item" :class="{ active: route().current('items.*') }" :href="route('items.index')" :data-tip="$t('menu.itemMaster')">
+        <Link v-if="can.warehouse.value" class="nav-item" :class="{ active: route().current('items.*') }" :href="route('items.index')" :data-tip="$t('menu.itemMaster')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8L12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
           <span class="lbl">{{ $t('menu.itemMaster') }}</span>
         </Link>
-        <Link class="nav-item" :class="{ active: route().current('stock-input.*') }" :href="route('stock-input.index')" :data-tip="$t('menu.stockInput')">
+        <Link v-if="can.warehouse.value" class="nav-item" :class="{ active: route().current('stock-input.*') }" :href="route('stock-input.index')" :data-tip="$t('menu.stockInput')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-6"/></svg>
           <span class="lbl">{{ $t('menu.stockInput') }}</span>
         </Link>
@@ -159,7 +179,7 @@ function logout() { router.post(route('logout')) }
         <div class="sb-user-name">{{ user.name }}</div>
         <div class="sb-user-role">{{ roleLabel }}</div>
       </div>
-      <button class="icon-btn" @click="logout" :title="$t('nav.logout')" type="button">
+      <button v-if="!impersonating" class="icon-btn" @click="logout" :title="$t('nav.logout')" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
@@ -168,6 +188,7 @@ function logout() { router.post(route('logout')) }
   <div v-if="mobileOpen" class="sb-overlay" @click="mobileOpen=false"></div>
 
   <!-- ── MAIN ─────────────────────────────────────────────────────────── -->
+
   <div class="wms-main">
 
     <header class="wms-navbar">
@@ -249,11 +270,13 @@ function logout() { router.post(route('logout')) }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
               <span>{{ $t('nav.settings') }}</span>
             </div>
-            <div class="dd-sep"></div>
-            <div class="dd-row dd-danger" @click="logout">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              <span>{{ $t('nav.logout') }}</span>
-            </div>
+            <template v-if="!impersonating">
+              <div class="dd-sep"></div>
+              <div class="dd-row dd-danger" @click="logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>{{ $t('nav.logout') }}</span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -264,8 +287,28 @@ function logout() { router.post(route('logout')) }
     </main>
   </div>
 </div>
+</div>
 </template>
 <style>
+/* ── impersonate banner ─────────────────────────────────────────────── */
+.wms-app-wrap{display:flex;flex-direction:column;min-height:100vh}
+.impersonate-bar{
+  display:flex;align-items:center;gap:10px;
+  background:linear-gradient(90deg,#92400e,#b45309);
+  color:#fef3c7;font-size:13px;font-weight:600;
+  padding:8px 20px;z-index:50;flex-shrink:0;
+}
+.impersonate-bar svg{flex-shrink:0;color:#fef3c7}
+.impersonate-bar span{flex:1}
+.imp-stop{
+  margin-left:auto;appearance:none;border:1px solid rgba(254,243,199,.5);
+  background:rgba(254,243,199,.12);color:#fef3c7;
+  padding:5px 14px;border-radius:6px;cursor:pointer;
+  font-size:12px;font-weight:700;font-family:inherit;
+  transition:background 180ms ease;
+}
+.imp-stop:hover{background:rgba(254,243,199,.25)}
+
 /* ── CSS variables ──────────────────────────────────────────────────── */
 :root {
   --blue-900:#1e3a8a;--blue-700:#1d4ed8;--blue-500:#3b82f6;--blue-400:#60a5fa;
