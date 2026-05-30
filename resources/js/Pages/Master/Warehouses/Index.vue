@@ -7,6 +7,16 @@ import QRCode from 'qrcode'
 
 const { t } = useI18n()
 
+// Same palette as Locations + Warehouse View — warehouse ID → color
+const WH_COLORS = [
+    { bg:'rgba(59,130,246,.15)',  color:'#60a5fa' },
+    { bg:'rgba(16,185,129,.15)', color:'#34d399' },
+    { bg:'rgba(249,115,22,.15)', color:'#fb923c' },
+    { bg:'rgba(139,92,246,.15)', color:'#a78bfa' },
+    { bg:'rgba(234,179,8,.15)',  color:'#fbbf24' },
+]
+function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
+
 const props = defineProps({
     warehouses: Object, filters: Object, stats: Object,
 })
@@ -268,7 +278,7 @@ function printLabel() {
             </tr>
             <tr v-for="(wh, i) in warehouses.data" :key="wh.id" class="dr">
               <td class="td-rn">{{ (warehouses.from ?? 1) + i }}</td>
-              <td><span class="code-badge">{{ wh.code }}</span></td>
+              <td><span class="code-badge" :style="{ background: whColor(wh.id).bg, color: whColor(wh.id).color, borderColor: whColor(wh.id).color + '44' }">{{ wh.code }}</span></td>
               <td class="td-name">{{ wh.name }}</td>
               <td class="tdd">{{ wh.location || '—' }}</td>
               <td style="text-align:center">
@@ -456,7 +466,7 @@ function printLabel() {
 .td-rn{text-align:center;color:var(--fg-dim);font-size:12px;font-weight:500;padding-left:8px;padding-right:8px}
 .tdd{color:var(--fg-2);font-size:13px}
 .td-name{font-weight:600;color:var(--fg)}
-.code-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.08em;font-family:monospace;background:rgba(249,115,22,.12);color:#fb923c;border:1px solid rgba(249,115,22,.2)}
+.code-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.08em;font-family:monospace;border:1px solid transparent}
 .rack-ct{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700;background:var(--surface-3);color:var(--fg-2);border:1px solid var(--border)}
 .sb{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
 .sb-on{color:var(--emerald)}.sb-off{color:var(--fg-dim)}
