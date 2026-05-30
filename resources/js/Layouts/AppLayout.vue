@@ -17,13 +17,23 @@ const roleLabel = computed(() => t(`role.${user.value.role}`, user.value.role))
 // ── impersonate ───────────────────────────────────────────────────────
 const impersonating = computed(() => page.props.impersonating ?? false)
 const role = computed(() => user.value.role ?? 'operator')
-// Role helpers
-const can = {
-    system:    computed(() => role.value === 'super_admin'),
-    warehouse: computed(() => ['super_admin','warehouse_manager','supervisor'].includes(role.value)),
-    inventory: computed(() => ['super_admin','warehouse_manager','supervisor','operator'].includes(role.value)),
-    dept:      computed(() => ['super_admin','admin_dept','manager_dept'].includes(role.value)),
+
+// ── DB-driven permissions ─────────────────────────────────────────────
+// auth.permissions from HandleInertiaRequests:
+//   super_admin → { __all: true }
+//   others      → { moduleName: { view, create, edit, delete, approve } }
+const permissions = computed(() => page.props.auth?.permissions ?? {})
+
+function canDo(module, action = 'view') {
+    if (permissions.value.__all) return true          // super_admin
+    return permissions.value[module]?.[action] === true
 }
+
+// Sidebar section visibility helpers
+const showSystem    = computed(() => canDo('users') || canDo('departments') || role.value === 'super_admin')
+const showWarehouse = computed(() => canDo('warehouses') || canDo('locations'))
+const showInventory = computed(() => canDo('itemMaster') || canDo('goodsReceipt') || canDo('goodsIssue'))
+const showReports   = computed(() => canDo('inventoryReport') || canDo('transactionLog'))
 
 function stopImpersonate() { router.post(route('users.stop-impersonate')) }
 
@@ -108,49 +118,53 @@ function logout() { router.post(route('logout')) }
         </Link>
       </div>
 
-      <div v-if="can.system.value" class="nav-section">
+      <!-- System Management — users / departments / permissions -->
+      <div v-if="showSystem" class="nav-section">
         <div class="nav-section-label">{{ $t('sec.system') }}</div>
-        <Link class="nav-item" :class="{ active: route().current('users.*') }" :href="route('users.index')" :data-tip="$t('menu.users')">
+        <Link v-if="canDo('users')" class="nav-item" :class="{ active: route().current('users.*') }" :href="route('users.index')" :data-tip="$t('menu.users')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="lbl">{{ $t('menu.users') }}</span>
         </Link>
-        <Link class="nav-item" :class="{ active: route().current('departments.*') }" :href="route('departments.index')" :data-tip="$t('menu.departments')">
+        <Link v-if="canDo('departments')" class="nav-item" :class="{ active: route().current('departments.*') }" :href="route('departments.index')" :data-tip="$t('menu.departments')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 12h.01M9 15h.01M9 18h.01M14 9h.01M14 12h.01M14 15h.01M14 18h.01"/></svg>
           <span class="lbl">{{ $t('menu.departments') }}</span>
         </Link>
-        <Link class="nav-item" :class="{ active: route().current('permissions.*') }" :href="route('permissions.index')" :data-tip="$t('menu.permissions')">
+        <!-- Permissions page — super_admin only -->
+        <Link v-if="role === 'super_admin'" class="nav-item" :class="{ active: route().current('permissions.*') }" :href="route('permissions.index')" :data-tip="$t('menu.permissions')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           <span class="lbl">{{ $t('menu.permissions') }}</span>
         </Link>
       </div>
 
-      <div v-if="can.warehouse.value" class="nav-section">
+      <!-- Warehouse & Rack Management -->
+      <div v-if="showWarehouse" class="nav-section">
         <div class="nav-section-label">{{ $t('sec.warehouse') }}</div>
-        <Link class="nav-item" :class="{ active: route().current('warehouses.*') }" :href="route('warehouses.index')" :data-tip="$t('menu.warehouses')">
+        <Link v-if="canDo('warehouses')" class="nav-item" :class="{ active: route().current('warehouses.*') }" :href="route('warehouses.index')" :data-tip="$t('menu.warehouses')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21V12h6v9"/></svg>
           <span class="lbl">{{ $t('menu.warehouses') }}</span>
         </Link>
-        <Link class="nav-item" :class="{ active: route().current('locations.*') }" :href="route('locations.index')" :data-tip="$t('menu.rackManagement')">
+        <Link v-if="canDo('locations')" class="nav-item" :class="{ active: route().current('locations.*') }" :href="route('locations.index')" :data-tip="$t('menu.rackManagement')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="11" width="18" height="6" rx="1.5"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
           <span class="lbl">{{ $t('menu.rackManagement') }}</span>
         </Link>
       </div>
 
-      <div v-if="can.inventory.value" class="nav-section">
+      <!-- Inventory -->
+      <div v-if="showInventory" class="nav-section">
         <div class="nav-section-label">{{ $t('sec.inventory') }}</div>
-        <Link v-if="can.warehouse.value" class="nav-item" :class="{ active: route().current('items.*') }" :href="route('items.index')" :data-tip="$t('menu.itemMaster')">
+        <Link v-if="canDo('itemMaster')" class="nav-item" :class="{ active: route().current('items.*') }" :href="route('items.index')" :data-tip="$t('menu.itemMaster')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8L12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
           <span class="lbl">{{ $t('menu.itemMaster') }}</span>
         </Link>
-        <Link v-if="can.warehouse.value" class="nav-item" :class="{ active: route().current('stock-input.*') }" :href="route('stock-input.index')" :data-tip="$t('menu.stockInput')">
+        <Link v-if="canDo('itemMaster')" class="nav-item" :class="{ active: route().current('stock-input.*') }" :href="route('stock-input.index')" :data-tip="$t('menu.stockInput')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-6"/></svg>
           <span class="lbl">{{ $t('menu.stockInput') }}</span>
         </Link>
-        <a class="nav-item" href="#" :data-tip="$t('menu.goodsReceipt')">
+        <a v-if="canDo('goodsReceipt')" class="nav-item" href="#" :data-tip="$t('menu.goodsReceipt')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg>
           <span class="lbl">{{ $t('menu.goodsReceipt') }}</span><span class="lbl-badge">GR</span>
         </a>
-        <a class="nav-item" href="#" :data-tip="$t('menu.goodsIssue')">
+        <a v-if="canDo('goodsIssue')" class="nav-item" href="#" :data-tip="$t('menu.goodsIssue')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16V8"/><path d="m8 12 4-4 4 4"/></svg>
           <span class="lbl">{{ $t('menu.goodsIssue') }}</span><span class="lbl-badge">GI</span>
         </a>
@@ -160,13 +174,14 @@ function logout() { router.post(route('logout')) }
         </a>
       </div>
 
-      <div class="nav-section">
+      <!-- Reports -->
+      <div v-if="showReports" class="nav-section">
         <div class="nav-section-label">{{ $t('sec.reports') }}</div>
-        <a class="nav-item" href="#" :data-tip="$t('menu.stockReport')">
+        <a v-if="canDo('inventoryReport')" class="nav-item" href="#" :data-tip="$t('menu.stockReport')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="13" width="3" height="5"/></svg>
           <span class="lbl">{{ $t('menu.stockReport') }}</span>
         </a>
-        <a class="nav-item" href="#" :data-tip="$t('menu.transactionLog')">
+        <a v-if="canDo('transactionLog')" class="nav-item" href="#" :data-tip="$t('menu.transactionLog')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
           <span class="lbl">{{ $t('menu.transactionLog') }}</span>
         </a>

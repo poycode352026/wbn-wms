@@ -27,27 +27,39 @@ Route::middleware('auth')->group(function () {
     Route::post('/users/{user}/impersonate', [UserController::class, 'impersonate'])->name('users.impersonate');
     Route::post('/users/stop-impersonate', [UserController::class, 'stopImpersonate'])->name('users.stop-impersonate');
 
-    // Super admin only
+    // ── Permissions page — super_admin only (too sensitive to delegate via DB perms) ─────
     Route::middleware('role:super_admin')->group(function () {
         Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
         Route::post('/permissions/{role}/save', [PermissionController::class, 'save'])->name('permissions.save');
+    });
+
+    // ── Users management ───────────────────────────────────────────────────────────────
+    Route::middleware('permission:users')->group(function () {
         Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+    });
+
+    // ── Departments management ─────────────────────────────────────────────────────────
+    Route::middleware('permission:departments')->group(function () {
         Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::post('/departments/{department}/assign-admin', [DepartmentController::class, 'assignAdmin'])->name('departments.assignAdmin');
         Route::delete('/departments/{department}/remove-admin', [DepartmentController::class, 'removeAdmin'])->name('departments.removeAdmin');
     });
 
-    // Warehouse management: super_admin, warehouse_manager, supervisor
-    Route::middleware('role:super_admin,warehouse_manager,supervisor')->group(function () {
+    // ── Warehouses ─────────────────────────────────────────────────────────────────────
+    Route::middleware('permission:warehouses')->group(function () {
         Route::resource('warehouses', WarehouseController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('/warehouse/{code}', [WarehouseController::class, 'warehouseView'])->name('warehouses.view');
-        Route::resource('locations', LocationController::class)->only(['index', 'store', 'update', 'destroy']);
+    });
+
+    // ── Locations / Rack Management ────────────────────────────────────────────────────
+    Route::middleware('permission:locations')->group(function () {
         Route::get('/locations/labels-data', [LocationController::class, 'labelsData'])->name('locations.labels-data');
+        Route::resource('locations', LocationController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('/rack/{code}', [LocationController::class, 'rackView'])->name('locations.rack-view');
     });
 
-    // Inventory / items: super_admin, warehouse_manager, supervisor
-    Route::middleware('role:super_admin,warehouse_manager,supervisor')->group(function () {
+    // ── Item Master ────────────────────────────────────────────────────────────────────
+    Route::middleware('permission:itemMaster')->group(function () {
         Route::get('/items/export', [ItemController::class, 'export'])->name('items.export');
         Route::get('/items/import-template', [ItemController::class, 'importTemplate'])->name('items.importTemplate');
         Route::post('/items/import', [ItemController::class, 'import'])->name('items.import');
@@ -58,8 +70,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/item-categories', [ItemController::class, 'storeCategory'])->name('item-categories.store');
         Route::patch('/item-categories/{itemCategory}', [ItemController::class, 'updateCategory'])->name('item-categories.update');
         Route::delete('/item-categories/{itemCategory}', [ItemController::class, 'destroyCategory'])->name('item-categories.destroy');
+    });
 
-        // Stock Input
+    // ── Stock Input ────────────────────────────────────────────────────────────────────
+    Route::middleware('permission:itemMaster')->group(function () {
         Route::get('/stock-input', [StockInputController::class, 'index'])->name('stock-input.index');
         Route::post('/stock-input/{variant}/set', [StockInputController::class, 'upsert'])->name('stock-input.upsert');
         Route::delete('/stock-input/entries/{stockLedger}', [StockInputController::class, 'destroy'])->name('stock-input.destroy');
