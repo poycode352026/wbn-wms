@@ -224,9 +224,15 @@ const bulkWh          = ref('')
 const bulkLocId       = ref('')
 const bulkProcessing  = ref(false)
 
-// Each row: { variantId, display (text shown), query (search term), open, qty }
-const newBulkRow = () => ({ variantId: null, display: '', query: '', open: false, qty: '' })
-const bulkRows   = ref([newBulkRow()])
+// Each row: { variantId, query (search text), open, qty, selectedUom }
+const newBulkRow = () => ({
+    variantId:   null,
+    query:       '',
+    open:        false,
+    qty:         '',
+    selectedUom: 'base',   // 'base' | 'alt'
+})
+const bulkRows = ref([newBulkRow()])
 
 const bulkLocations = computed(() => {
     if (!bulkWh.value) return []
@@ -262,16 +268,32 @@ function filteredVariants(row) {
 }
 
 function selectBulkVariant(row, v) {
-    row.variantId = v.id
-    row.display   = v.label || v.sku
-    row.query     = v.label || v.sku
-    row.open      = false
+    row.variantId   = v.id
+    row.query       = v.label || v.sku
+    row.open        = false
+    row.qty         = ''
+    row.selectedUom = 'base'
 }
 
-function bulkVariantUom(row) {
-    if (!row.variantId) return ''
-    const v = props.allVariants.find(a => a.id === row.variantId)
-    return v?.base_uom ?? ''
+// Get the full allVariants record for a row
+function variantOf(row) {
+    if (!row.variantId) return null
+    return props.allVariants.find(a => a.id === row.variantId) ?? null
+}
+
+// Does this row's variant have an alt UOM?
+function rowHasAlt(row) {
+    const v = variantOf(row)
+    return !!(v?.alt_uom && v?.alt_uom_conversion)
+}
+
+// Conversion hint: "= X base_uom" when alt selected
+function rowConvHint(row) {
+    if (row.selectedUom !== 'alt' || !rowHasAlt(row)) return null
+    const raw = parseFloat(row.qty)
+    if (isNaN(raw) || raw <= 0) return null
+    const v   = variantOf(row)
+    return `= ${(raw * v.alt_uom_conversion).toLocaleString()} ${v.base_uom}`
 }
 
 function openDropdown(row) { row.open = true }
@@ -282,7 +304,15 @@ function submitBulk() {
 
     const entries = bulkRows.value
         .filter(r => r.variantId && r.qty !== '' && !isNaN(parseFloat(r.qty)))
-        .map(r => ({ variant_id: r.variantId, qty_on_hand: parseFloat(r.qty) }))
+        .map(r => {
+            const v   = variantOf(r)
+            let qty   = parseFloat(r.qty)
+            // convert alt UOM → base UOM before sending
+            if (r.selectedUom === 'alt' && v?.alt_uom_conversion) {
+                qty = qty * v.alt_uom_conversion
+            }
+            return { variant_id: r.variantId, qty_on_hand: qty }
+        })
 
     if (!entries.length || !bulkLocId.value) return
 
@@ -496,60 +526,84 @@ const STAT_COLORS = [
             </button>
           </div>
 
-          <!-- Rows -->
+          <!-- Rows — card layout -->
           <div class="bulk-rows">
-            <div class="bulk-row" v-for="(row, idx) in bulkRows" :key="idx">
-              <!-- Row number -->
-              <div class="bulk-row-num">{{ idx + 1 }}</div>
+            <div class="bulk-card" v-for="(row, idx) in bulkRows" :key="idx">
 
-              <!-- SKU combobox -->
-              <div class="bulk-combo-wrap">
-                <input
-                  class="si-input bulk-combo-input"
-                  :class="{ 'has-val': row.variantId }"
-                  type="text"
-                  v-model="row.query"
-                  :placeholder="$t('si.searchSku')"
-                  autocomplete="off"
-                  @focus="openDropdown(row)"
-                  @blur="closeDropdown(row)"
-                  @input="row.variantId = null; row.display = ''"
-                />
-                <!-- Dropdown -->
-                <div v-if="row.open && filteredVariants(row).length" class="bulk-dropdown">
-                  <div
-                    v-for="v in filteredVariants(row)"
-                    :key="v.id"
-                    class="bulk-option"
-                    @mousedown.prevent="selectBulkVariant(row, v)"
-                  >
-                    <span class="bulk-opt-sku">{{ v.sku }}</span>
-                    <span class="bulk-opt-name">{{ v.name_en || v.name_id || '' }}</span>
+              <!-- Top: number + SKU combobox + delete -->
+              <div class="bulk-card-top">
+                <span class="bulk-row-num">{{ idx + 1 }}</span>
+
+                <!-- SKU combobox -->
+                <div class="bulk-combo-wrap">
+                  <input
+                    class="si-input bulk-combo-input"
+                    :class="{ 'has-val': row.variantId }"
+                    type="text"
+                    v-model="row.query"
+                    :placeholder="$t('si.searchSku')"
+                    autocomplete="off"
+                    @focus="openDropdown(row)"
+                    @blur="closeDropdown(row)"
+                    @input="row.variantId = null"
+                  />
+                  <!-- Dropdown list -->
+                  <div v-if="row.open && filteredVariants(row).length" class="bulk-dropdown">
+                    <div
+                      v-for="v in filteredVariants(row)"
+                      :key="v.id"
+                      class="bulk-option"
+                      @mousedown.prevent="selectBulkVariant(row, v)"
+                    >
+                      <span class="bulk-opt-sku">{{ v.sku }}</span>
+                      <span class="bulk-opt-name">{{ v.name_en || v.name_id || '' }}</span>
+                    </div>
+                    <div v-if="filteredVariants(row).length === 0" class="bulk-option bulk-opt-empty">
+                      No results
+                    </div>
                   </div>
                 </div>
+
+                <button type="button" class="bulk-del" @click="removeBulkRow(idx)" :disabled="bulkRows.length === 1">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
               </div>
 
-              <!-- Qty -->
-              <input
-                class="si-input bulk-qty"
-                type="number"
-                v-model="row.qty"
-                step="any" min="0"
-                placeholder="0"
-              />
+              <!-- Bottom: qty + UOM toggle — only when variant selected -->
+              <div v-if="row.variantId" class="bulk-card-bottom">
+                <!-- Qty input -->
+                <input
+                  class="si-input bulk-qty-input"
+                  type="number"
+                  v-model="row.qty"
+                  step="any" min="0"
+                  :placeholder="'0 ' + (row.selectedUom === 'alt' && rowHasAlt(row) ? variantOf(row).alt_uom : (variantOf(row)?.base_uom ?? ''))"
+                />
 
-              <!-- UOM -->
-              <span class="bulk-uom-label">{{ bulkVariantUom(row) }}</span>
+                <!-- UOM toggle if alt exists, else just label -->
+                <div v-if="rowHasAlt(row)" class="bulk-uom-toggle">
+                  <button
+                    type="button"
+                    class="bulk-uom-btn"
+                    :class="{ active: row.selectedUom === 'base' }"
+                    @click="row.selectedUom = 'base'; row.qty = ''"
+                  >{{ variantOf(row).base_uom }}</button>
+                  <button
+                    type="button"
+                    class="bulk-uom-btn"
+                    :class="{ active: row.selectedUom === 'alt' }"
+                    @click="row.selectedUom = 'alt'; row.qty = ''"
+                  >{{ variantOf(row).alt_uom }}</button>
+                </div>
+                <span v-else class="bulk-uom-static">{{ variantOf(row)?.base_uom ?? '' }}</span>
 
-              <!-- Remove -->
-              <button
-                type="button"
-                class="bulk-del"
-                @click="removeBulkRow(idx)"
-                :disabled="bulkRows.length === 1"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              </button>
+                <!-- Conversion hint -->
+                <span v-if="rowConvHint(row)" class="bulk-conv-hint">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                  {{ rowConvHint(row) }}
+                </span>
+              </div>
+
             </div>
           </div>
 
@@ -992,48 +1046,83 @@ const STAT_COLORS = [
 }
 .bulk-add-row:hover { background:rgba(139,92,246,.22) }
 
-.bulk-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:4px; max-height:340px; overflow-y:auto }
+.bulk-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:4px; max-height:400px; overflow-y:auto }
 
-.bulk-row {
-  display:grid; grid-template-columns:28px 1fr 100px 52px 32px;
-  align-items:center; gap:8px;
+/* card per row */
+.bulk-card {
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:10px; padding:10px 12px;
+  display:flex; flex-direction:column; gap:8px;
 }
-@media(max-width:540px){ .bulk-row{ grid-template-columns:24px 1fr 80px 40px 28px } }
+
+.bulk-card-top { display:flex; align-items:center; gap:8px }
 
 .bulk-row-num {
   font-size:11px; font-weight:700; color:var(--fg-dim);
-  text-align:center; line-height:1;
+  width:20px; text-align:center; flex-shrink:0;
 }
 
 /* combobox */
-.bulk-combo-wrap { position:relative }
+.bulk-combo-wrap { position:relative; flex:1 }
 .bulk-combo-input { width:100%; box-sizing:border-box }
-.bulk-combo-input.has-val { border-color:rgba(139,92,246,.5); color:var(--fg) }
+.bulk-combo-input.has-val {
+  border-color:rgba(139,92,246,.45);
+  background:rgba(139,92,246,.06);
+}
 
 .bulk-dropdown {
   position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:200;
-  background:var(--surface-2); border:1px solid var(--border-2);
-  border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.35);
-  overflow:hidden; max-height:200px; overflow-y:auto;
+  background:var(--surface); border:1px solid var(--border-2);
+  border-radius:9px; box-shadow:0 10px 28px rgba(0,0,0,.4);
+  overflow:hidden; max-height:220px; overflow-y:auto;
 }
 .bulk-option {
-  display:flex; align-items:baseline; gap:8px; padding:8px 12px; cursor:pointer;
-  transition:background 120ms;
+  display:flex; align-items:baseline; gap:10px;
+  padding:9px 14px; cursor:pointer; transition:background 120ms;
 }
 .bulk-option:hover { background:rgba(139,92,246,.1) }
 .bulk-opt-sku {
-  font-family:monospace; font-size:12px; font-weight:700;
+  font-family:monospace; font-size:12.5px; font-weight:700;
   color:#a78bfa; flex-shrink:0;
 }
-.bulk-opt-name { font-size:12px; color:var(--fg-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.bulk-opt-name {
+  font-size:12px; color:var(--fg-2);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.bulk-opt-empty { color:var(--fg-dim); font-size:12px; cursor:default }
 
-.bulk-qty { width:100%; box-sizing:border-box; text-align:right }
-.bulk-uom-label { font-size:11px; font-weight:600; color:var(--fg-dim); white-space:nowrap }
+/* bottom row: qty + uom toggle + hint */
+.bulk-card-bottom {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding-left:28px;
+}
+.bulk-qty-input { width:120px; flex-shrink:0 }
 
+/* UOM toggle */
+.bulk-uom-toggle {
+  display:inline-flex; border:1px solid var(--border-2);
+  border-radius:7px; overflow:hidden; flex-shrink:0;
+}
+.bulk-uom-btn {
+  padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer;
+  background:transparent; border:none; color:var(--fg-2);
+  font-family:inherit; transition:background 150ms, color 150ms;
+}
+.bulk-uom-btn.active { background:#a78bfa; color:#fff }
+.bulk-uom-btn:not(.active):hover { background:rgba(139,92,246,.1); color:#a78bfa }
+.bulk-uom-static { font-size:12px; font-weight:700; color:var(--fg-dim) }
+
+/* conversion hint */
+.bulk-conv-hint {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:11.5px; font-weight:600; color:#a78bfa;
+}
+
+/* delete button */
 .bulk-del {
   appearance:none; border:1px solid var(--border-2); background:transparent;
   width:30px; height:30px; border-radius:6px; cursor:pointer;
-  color:var(--fg-dim); display:grid; place-items:center;
+  color:var(--fg-dim); display:grid; place-items:center; flex-shrink:0;
   transition:background 150ms,color 150ms,border-color 150ms;
 }
 .bulk-del:hover:not(:disabled) { background:rgba(239,68,68,.12); color:#f87171; border-color:rgba(239,68,68,.25) }

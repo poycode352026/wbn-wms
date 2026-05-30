@@ -123,19 +123,22 @@ class StockInputController extends Controller
         $withStock     = StockLedger::distinct('item_variant_id')->count('item_variant_id');
         $totalQty      = StockLedger::sum('qty_on_hand');
 
-        // Compact variant list for the bulk-stock combobox (id + sku + names only)
+        // Compact variant list for the bulk-stock combobox
         $allVariants = ItemVariant::where('is_active', true)
-            ->with('item:id,name_en,name_id,name_zh,base_uom')
+            ->with('item:id,name_en,name_id,name_zh,base_uom,alt_uom,alt_uom_conversion')
             ->orderBy('sku')
             ->get(['id', 'sku', 'brand', 'model', 'item_id'])
             ->map(fn ($v) => [
-                'id'      => $v->id,
-                'sku'     => $v->sku,
-                'label'   => implode(' · ', array_filter([$v->sku, $v->brand, $v->model])),
-                'name_en' => $v->item?->name_en,
-                'name_id' => $v->item?->name_id,
-                'name_zh' => $v->item?->name_zh,
-                'base_uom'=> $v->item?->base_uom,
+                'id'                 => $v->id,
+                'sku'                => $v->sku,
+                'label'              => implode(' · ', array_filter([$v->sku, $v->brand, $v->model])),
+                'name_en'            => $v->item?->name_en,
+                'name_id'            => $v->item?->name_id,
+                'name_zh'            => $v->item?->name_zh,
+                'base_uom'           => $v->item?->base_uom,
+                'alt_uom'            => $v->item?->alt_uom,
+                'alt_uom_conversion' => $v->item?->alt_uom_conversion
+                    ? (float) $v->item->alt_uom_conversion : null,
             ])
             ->values()->all();
 
