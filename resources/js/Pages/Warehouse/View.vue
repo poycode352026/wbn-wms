@@ -14,13 +14,13 @@ const props = defineProps({
     scannedAt:  String,
 })
 
-// Same palette as Locations page — warehouse ID → color
+// Same palette as all other pages — warehouse ID → color
 const WH_COLORS = [
-    { bg:'rgba(59,130,246,.15)',  color:'#60a5fa' },
-    { bg:'rgba(16,185,129,.15)', color:'#34d399' },
-    { bg:'rgba(249,115,22,.15)', color:'#fb923c' },
-    { bg:'rgba(139,92,246,.15)', color:'#a78bfa' },
-    { bg:'rgba(234,179,8,.15)',  color:'#fbbf24' },
+    { bg:'rgba(59,130,246,.15)',  color:'#60a5fa', grad:'linear-gradient(135deg,#3b82f6,#1d4ed8)' },
+    { bg:'rgba(16,185,129,.15)', color:'#34d399', grad:'linear-gradient(135deg,#10b981,#059669)' },
+    { bg:'rgba(249,115,22,.15)', color:'#fb923c', grad:'linear-gradient(135deg,#f97316,#ea580c)' },
+    { bg:'rgba(139,92,246,.15)', color:'#a78bfa', grad:'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
+    { bg:'rgba(234,179,8,.15)',  color:'#fbbf24', grad:'linear-gradient(135deg,#eab308,#d97706)' },
 ]
 const whColor = computed(() => {
     const id = props.warehouse?.id ?? 1
@@ -44,9 +44,9 @@ function variantLabel(v) {
   <template #title>{{ warehouse.code }}</template>
   <template #breadcrumb>{{ warehouse.code }}</template>
 
-  <!-- Warehouse header card -->
-  <div class="wv-card">
-    <div class="wv-icon">
+  <!-- Warehouse header card — warehouse color -->
+  <div class="wv-card" :style="{ background: whColor.bg, borderColor: whColor.color + '44' }">
+    <div class="wv-icon" :style="{ background: whColor.bg, color: whColor.color }">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 21V9l9-6 9 6v12"/><path d="M9 21V12h6v9"/>
       </svg>
@@ -116,7 +116,7 @@ function variantLabel(v) {
           <!-- foto / placeholder -->
           <div class="wv-img-wrap">
             <img v-if="entry.variant?.photo_path" :src="entry.variant.photo_path" :alt="entry.variant.sku" class="wv-img" />
-            <div v-else class="wv-img-ph">WBN</div>
+            <div v-else class="wv-img-ph" :style="{ background: whColor.grad }">WBN</div>
           </div>
           <!-- info -->
           <div class="wv-item-info">
@@ -152,15 +152,13 @@ function variantLabel(v) {
 <style scoped>
 /* warehouse header card */
 .wv-card {
-  background: linear-gradient(135deg, rgba(59,130,246,.15), rgba(37,99,235,.08));
-  border: 1px solid rgba(59,130,246,.3);
+  border: 1px solid transparent;
   border-radius: 16px; padding: 20px 24px;
   display: flex; align-items: center; gap: 18px;
 }
 .wv-icon {
   width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
-  background: rgba(59,130,246,.15); display: grid; place-items: center;
-  color: #60a5fa;
+  display: grid; place-items: center;
 }
 .wv-icon svg { width: 26px; height: 26px }
 .wv-info { flex: 1; min-width: 0 }
@@ -237,7 +235,6 @@ function variantLabel(v) {
 .wv-img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border) }
 .wv-img-ph {
   width: 44px; height: 44px; border-radius: 8px;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   display: grid; place-items: center;
   font-size: 10px; font-weight: 800; color: #fff; letter-spacing: .05em;
 }

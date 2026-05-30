@@ -8,11 +8,12 @@ const { t, locale } = useI18n()
 const page = usePage()
 
 const props = defineProps({
-    variants:   Object,
-    categories: Array,
-    warehouses: Array,
-    filters:    Object,
-    stats:      Object,
+    variants:    Object,
+    allVariants: Array,
+    categories:  Array,
+    warehouses:  Array,
+    filters:     Object,
+    stats:       Object,
 })
 
 // ── flash ──────────────────────────────────────────────────────────────────
@@ -217,6 +218,93 @@ function confirmDelete(entryId) {
     })
 }
 
+// ── BULK STOCK MODAL ───────────────────────────────────────────────────────
+const bulkOpen        = ref(false)
+const bulkWh          = ref('')
+const bulkLocId       = ref('')
+const bulkProcessing  = ref(false)
+
+// Each row: { variantId, display (text shown), query (search term), open, qty }
+const newBulkRow = () => ({ variantId: null, display: '', query: '', open: false, qty: '' })
+const bulkRows   = ref([newBulkRow()])
+
+const bulkLocations = computed(() => {
+    if (!bulkWh.value) return []
+    const wh = props.warehouses.find(w => w.id == bulkWh.value)
+    return wh ? wh.locations : []
+})
+
+watch(() => bulkWh.value, () => { bulkLocId.value = '' })
+
+function openBulk() {
+    bulkWh.value   = ''
+    bulkLocId.value = ''
+    bulkRows.value  = [newBulkRow()]
+    bulkOpen.value  = true
+}
+function closeBulk() { bulkOpen.value = false }
+
+function addBulkRow() { bulkRows.value.push(newBulkRow()) }
+function removeBulkRow(idx) {
+    if (bulkRows.value.length > 1) bulkRows.value.splice(idx, 1)
+}
+
+// Filter allVariants by row's query, cap at 10 results
+function filteredVariants(row) {
+    const q = (row.query || '').trim().toLowerCase()
+    if (!q) return props.allVariants.slice(0, 8)
+    return props.allVariants.filter(v =>
+        v.sku.toLowerCase().includes(q) ||
+        (v.name_en && v.name_en.toLowerCase().includes(q)) ||
+        (v.name_id && v.name_id.toLowerCase().includes(q)) ||
+        (v.label   && v.label.toLowerCase().includes(q))
+    ).slice(0, 8)
+}
+
+function selectBulkVariant(row, v) {
+    row.variantId = v.id
+    row.display   = v.label || v.sku
+    row.query     = v.label || v.sku
+    row.open      = false
+}
+
+function bulkVariantUom(row) {
+    if (!row.variantId) return ''
+    const v = props.allVariants.find(a => a.id === row.variantId)
+    return v?.base_uom ?? ''
+}
+
+function openDropdown(row) { row.open = true }
+function closeDropdown(row) { setTimeout(() => { row.open = false }, 160) }
+
+function submitBulk() {
+    if (bulkProcessing.value) return
+
+    const entries = bulkRows.value
+        .filter(r => r.variantId && r.qty !== '' && !isNaN(parseFloat(r.qty)))
+        .map(r => ({ variant_id: r.variantId, qty_on_hand: parseFloat(r.qty) }))
+
+    if (!entries.length || !bulkLocId.value) return
+
+    bulkProcessing.value = true
+    router.post(route('stock-input.bulk'), {
+        location_id: bulkLocId.value,
+        entries,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            bulkOpen.value       = false
+            bulkProcessing.value = false
+            router.reload({ only: ['variants', 'stats', 'allVariants'], preserveScroll: true })
+        },
+        onError: () => { bulkProcessing.value = false },
+    })
+}
+
+const bulkValidRows = computed(() =>
+    bulkRows.value.filter(r => r.variantId && r.qty !== '' && !isNaN(parseFloat(r.qty))).length
+)
+
 // ── stat card config ───────────────────────────────────────────────────────
 const STAT_COLORS = [
     { bg: 'rgba(59,130,246,.12)',  icon: '#60a5fa' },
@@ -271,6 +359,10 @@ const STAT_COLORS = [
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         {{ $t('si.exportBtn') }}
       </a>
+      <button class="si-btn-bulk" type="button" @click="openBulk">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+        {{ $t('si.bulkBtn') }}
+      </button>
       <button class="si-btn-import" type="button" @click="importOpen = true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><polyline points="17 8 12 3 7 8"/></svg>
         {{ $t('si.importBtn') }}
@@ -361,6 +453,121 @@ const STAT_COLORS = [
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
       <img :src="lightboxSrc" class="si-lb-img" @click.stop />
+    </div>
+
+    <!-- ── BULK STOCK MODAL ──────────────────────────────────────────────────── -->
+    <div v-if="bulkOpen" class="si-backdrop" @click.self="closeBulk">
+      <div class="si-modal si-modal-bulk">
+        <div class="si-modal-head">
+          <div>
+            <div class="si-modal-title">{{ $t('si.bulkTitle') }}</div>
+            <div class="si-modal-sub">{{ $t('si.bulkSub') }}</div>
+          </div>
+          <button class="si-modal-close" @click="closeBulk" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="si-modal-body">
+          <!-- Warehouse + Rack -->
+          <div class="bulk-loc-row">
+            <div class="si-fg">
+              <label class="si-label">{{ $t('si.warehouse') }}</label>
+              <select class="si-input" v-model="bulkWh" required>
+                <option value="">{{ $t('si.selectWh') }}</option>
+                <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.code }} · {{ wh.name }}</option>
+              </select>
+            </div>
+            <div class="si-fg">
+              <label class="si-label">{{ $t('si.rack') }}</label>
+              <select class="si-input" v-model="bulkLocId" :disabled="!bulkLocations.length" required>
+                <option value="">{{ $t('si.selectRack') }}</option>
+                <option v-for="l in bulkLocations" :key="l.id" :value="l.id">{{ l.code }} · {{ l.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Entries header -->
+          <div class="bulk-entries-head">
+            <div class="si-sec-label" style="margin:0">{{ $t('si.bulkEntries') }}</div>
+            <button type="button" class="bulk-add-row" @click="addBulkRow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              {{ $t('si.addRow') }}
+            </button>
+          </div>
+
+          <!-- Rows -->
+          <div class="bulk-rows">
+            <div class="bulk-row" v-for="(row, idx) in bulkRows" :key="idx">
+              <!-- Row number -->
+              <div class="bulk-row-num">{{ idx + 1 }}</div>
+
+              <!-- SKU combobox -->
+              <div class="bulk-combo-wrap">
+                <input
+                  class="si-input bulk-combo-input"
+                  :class="{ 'has-val': row.variantId }"
+                  type="text"
+                  v-model="row.query"
+                  :placeholder="$t('si.searchSku')"
+                  autocomplete="off"
+                  @focus="openDropdown(row)"
+                  @blur="closeDropdown(row)"
+                  @input="row.variantId = null; row.display = ''"
+                />
+                <!-- Dropdown -->
+                <div v-if="row.open && filteredVariants(row).length" class="bulk-dropdown">
+                  <div
+                    v-for="v in filteredVariants(row)"
+                    :key="v.id"
+                    class="bulk-option"
+                    @mousedown.prevent="selectBulkVariant(row, v)"
+                  >
+                    <span class="bulk-opt-sku">{{ v.sku }}</span>
+                    <span class="bulk-opt-name">{{ v.name_en || v.name_id || '' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Qty -->
+              <input
+                class="si-input bulk-qty"
+                type="number"
+                v-model="row.qty"
+                step="any" min="0"
+                placeholder="0"
+              />
+
+              <!-- UOM -->
+              <span class="bulk-uom-label">{{ bulkVariantUom(row) }}</span>
+
+              <!-- Remove -->
+              <button
+                type="button"
+                class="bulk-del"
+                @click="removeBulkRow(idx)"
+                :disabled="bulkRows.length === 1"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="si-modal-foot">
+            <button type="button" class="si-cancel" @click="closeBulk">{{ $t('btn.cancel') }}</button>
+            <button
+              type="button"
+              class="si-save"
+              :disabled="bulkProcessing || !bulkLocId || bulkValidRows === 0"
+              @click="submitBulk"
+            >
+              <svg v-if="bulkProcessing" class="si-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              {{ bulkProcessing ? $t('si.saving') : $t('si.bulkSave', { n: bulkValidRows }) }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- import modal -->
@@ -642,21 +849,27 @@ const STAT_COLORS = [
 
 /* ── toolbar actions ─────────────────────────────────────────────────────── */
 .si-tb-actions { display:flex; gap:8px; margin-left:auto }
-.si-btn-export, .si-btn-import {
+.si-btn-export, .si-btn-import, .si-btn-bulk {
   display:inline-flex; align-items:center; gap:6px;
   padding:8px 14px; border-radius:8px; font-size:13px; font-weight:600;
   cursor:pointer; transition:background 150ms, border-color 150ms; white-space:nowrap;
-  text-decoration:none;
+  text-decoration:none; font-family:inherit; border:1px solid transparent;
 }
 .si-btn-export {
   background:rgba(16,185,129,.12); color:#34d399;
-  border:1px solid rgba(16,185,129,.25);
+  border-color:rgba(16,185,129,.25);
 }
 .si-btn-export:hover { background:rgba(16,185,129,.2); border-color:rgba(16,185,129,.4) }
 .si-btn-export svg { width:14px; height:14px }
+.si-btn-bulk {
+  background:rgba(139,92,246,.12); color:#a78bfa;
+  border-color:rgba(139,92,246,.25);
+}
+.si-btn-bulk:hover { background:rgba(139,92,246,.2); border-color:rgba(139,92,246,.4) }
+.si-btn-bulk svg { width:14px; height:14px }
 .si-btn-import {
   background:rgba(59,130,246,.12); color:#60a5fa;
-  border:1px solid rgba(59,130,246,.25);
+  border-color:rgba(59,130,246,.25);
 }
 .si-btn-import:hover { background:rgba(59,130,246,.2); border-color:rgba(59,130,246,.4) }
 .si-btn-import svg { width:14px; height:14px; transform:rotate(180deg) }
@@ -760,4 +973,73 @@ const STAT_COLORS = [
 }
 .si-lb-close:hover { background:rgba(255,255,255,.2) }
 .si-lb-close svg { width:16px; height:16px }
+
+/* ── Bulk Stock Modal ────────────────────────────────────────────────────── */
+.si-modal-bulk { max-width:760px }
+.bulk-loc-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px }
+@media(max-width:540px){ .bulk-loc-row{ grid-template-columns:1fr } }
+
+.bulk-entries-head {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px;
+}
+.bulk-add-row {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:7px; font-size:12.5px; font-weight:600;
+  background:rgba(139,92,246,.12); color:#a78bfa;
+  border:1px solid rgba(139,92,246,.25); cursor:pointer; font-family:inherit;
+  transition:background 150ms;
+}
+.bulk-add-row:hover { background:rgba(139,92,246,.22) }
+
+.bulk-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:4px; max-height:340px; overflow-y:auto }
+
+.bulk-row {
+  display:grid; grid-template-columns:28px 1fr 100px 52px 32px;
+  align-items:center; gap:8px;
+}
+@media(max-width:540px){ .bulk-row{ grid-template-columns:24px 1fr 80px 40px 28px } }
+
+.bulk-row-num {
+  font-size:11px; font-weight:700; color:var(--fg-dim);
+  text-align:center; line-height:1;
+}
+
+/* combobox */
+.bulk-combo-wrap { position:relative }
+.bulk-combo-input { width:100%; box-sizing:border-box }
+.bulk-combo-input.has-val { border-color:rgba(139,92,246,.5); color:var(--fg) }
+
+.bulk-dropdown {
+  position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:200;
+  background:var(--surface-2); border:1px solid var(--border-2);
+  border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.35);
+  overflow:hidden; max-height:200px; overflow-y:auto;
+}
+.bulk-option {
+  display:flex; align-items:baseline; gap:8px; padding:8px 12px; cursor:pointer;
+  transition:background 120ms;
+}
+.bulk-option:hover { background:rgba(139,92,246,.1) }
+.bulk-opt-sku {
+  font-family:monospace; font-size:12px; font-weight:700;
+  color:#a78bfa; flex-shrink:0;
+}
+.bulk-opt-name { font-size:12px; color:var(--fg-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+
+.bulk-qty { width:100%; box-sizing:border-box; text-align:right }
+.bulk-uom-label { font-size:11px; font-weight:600; color:var(--fg-dim); white-space:nowrap }
+
+.bulk-del {
+  appearance:none; border:1px solid var(--border-2); background:transparent;
+  width:30px; height:30px; border-radius:6px; cursor:pointer;
+  color:var(--fg-dim); display:grid; place-items:center;
+  transition:background 150ms,color 150ms,border-color 150ms;
+}
+.bulk-del:hover:not(:disabled) { background:rgba(239,68,68,.12); color:#f87171; border-color:rgba(239,68,68,.25) }
+.bulk-del:disabled { opacity:.3; cursor:default }
+.bulk-del svg { width:13px; height:13px }
+
+@keyframes si-spin { to { transform:rotate(360deg) } }
+.si-spin { animation:si-spin .8s linear infinite; flex-shrink:0 }
 </style>

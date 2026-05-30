@@ -123,12 +123,29 @@ class StockInputController extends Controller
         $withStock     = StockLedger::distinct('item_variant_id')->count('item_variant_id');
         $totalQty      = StockLedger::sum('qty_on_hand');
 
+        // Compact variant list for the bulk-stock combobox (id + sku + names only)
+        $allVariants = ItemVariant::where('is_active', true)
+            ->with('item:id,name_en,name_id,name_zh,base_uom')
+            ->orderBy('sku')
+            ->get(['id', 'sku', 'brand', 'model', 'item_id'])
+            ->map(fn ($v) => [
+                'id'      => $v->id,
+                'sku'     => $v->sku,
+                'label'   => implode(' · ', array_filter([$v->sku, $v->brand, $v->model])),
+                'name_en' => $v->item?->name_en,
+                'name_id' => $v->item?->name_id,
+                'name_zh' => $v->item?->name_zh,
+                'base_uom'=> $v->item?->base_uom,
+            ])
+            ->values()->all();
+
         return Inertia::render('Master/StockInput/Index', [
-            'variants'   => $variants,
-            'categories' => $categories,
-            'warehouses' => $warehouses,
-            'filters'    => $request->only(['search', 'category_id']),
-            'stats'      => [
+            'variants'    => $variants,
+            'allVariants' => $allVariants,
+            'categories'  => $categories,
+            'warehouses'  => $warehouses,
+            'filters'     => $request->only(['search', 'category_id']),
+            'stats'       => [
                 'totalVariants' => $totalVariants,
                 'withStock'     => $withStock,
                 'noStock'       => $totalVariants - $withStock,
@@ -160,6 +177,40 @@ class StockInputController extends Controller
         );
 
         return back()->with('success', 'Stock updated successfully.');
+    }
+
+    /**
+     * Bulk upsert stock for multiple variants in one location at once.
+     */
+    public function bulkUpsert(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'location_id'           => ['required', 'exists:locations,id'],
+            'entries'               => ['required', 'array', 'min:1'],
+            'entries.*.variant_id'  => ['required', 'exists:item_variants,id'],
+            'entries.*.qty_on_hand' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $location    = Location::findOrFail($data['location_id']);
+        $warehouseId = $location->warehouse_id;
+        $count       = 0;
+
+        foreach ($data['entries'] as $entry) {
+            StockLedger::updateOrCreate(
+                [
+                    'item_variant_id' => $entry['variant_id'],
+                    'location_id'     => $data['location_id'],
+                ],
+                [
+                    'warehouse_id'    => $warehouseId,
+                    'qty_on_hand'     => $entry['qty_on_hand'],
+                    'last_updated_at' => now(),
+                ]
+            );
+            $count++;
+        }
+
+        return back()->with('success', "{$count} stock entries updated successfully.");
     }
 
     public function destroy(StockLedger $stockLedger): RedirectResponse

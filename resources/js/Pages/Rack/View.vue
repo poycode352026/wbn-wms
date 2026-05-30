@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue'
-import { usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
@@ -10,6 +9,19 @@ const props = defineProps({
     location:  Object,
     items:     Array,
     scannedAt: String,
+})
+
+// Same palette as all other pages — warehouse ID → color
+const WH_COLORS = [
+    { bg:'rgba(59,130,246,.15)',  color:'#60a5fa', grad:'linear-gradient(135deg,#3b82f6,#1d4ed8)' },
+    { bg:'rgba(16,185,129,.15)', color:'#34d399', grad:'linear-gradient(135deg,#10b981,#059669)' },
+    { bg:'rgba(249,115,22,.15)', color:'#fb923c', grad:'linear-gradient(135deg,#f97316,#ea580c)' },
+    { bg:'rgba(139,92,246,.15)', color:'#a78bfa', grad:'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
+    { bg:'rgba(234,179,8,.15)',  color:'#fbbf24', grad:'linear-gradient(135deg,#eab308,#d97706)' },
+]
+const whColor = computed(() => {
+    const id = props.location?.warehouse?.id ?? 1
+    return WH_COLORS[(id - 1) % WH_COLORS.length]
 })
 
 function itemName(item) {
@@ -32,9 +44,11 @@ const totalQty   = computed(() => props.items.reduce((s, i) => s + i.qty_on_hand
   <template #title>Rak {{ location.code }}</template>
   <template #breadcrumb>Rak {{ location.code }}</template>
 
-  <!-- Rack header card -->
-  <div class="rv-rack-card">
-    <div class="rv-rack-icon">
+  <!-- Rack header card — warehouse color -->
+  <div class="rv-rack-card"
+    :style="{ background: whColor.bg, borderColor: whColor.color + '44' }">
+    <div class="rv-rack-icon"
+      :style="{ background: whColor.bg, color: whColor.color }">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="6" rx="1.5"/>
         <rect x="3" y="11" width="18" height="6" rx="1.5"/>
@@ -79,14 +93,17 @@ const totalQty   = computed(() => props.items.reduce((s, i) => s + i.qty_on_hand
       <!-- foto / placeholder -->
       <div class="rv-img-wrap">
         <img v-if="entry.variant?.photo_path" :src="entry.variant.photo_path" :alt="entry.variant.sku" class="rv-img" />
-        <div v-else class="rv-img-ph">WBN</div>
+        <div v-else class="rv-img-ph" :style="{ background: whColor.grad }">WBN</div>
       </div>
 
       <!-- info -->
       <div class="rv-item-info">
         <div class="rv-item-top">
           <span class="rv-cat" v-if="entry.variant?.item?.category">{{ entry.variant.item.category.code }}</span>
-          <span class="rv-sku">{{ entry.variant?.sku ?? '—' }}</span>
+          <span class="rv-sku"
+            :style="{ color: whColor.color, background: whColor.bg, borderColor: whColor.color + '33' }">
+            {{ entry.variant?.sku ?? '—' }}
+          </span>
         </div>
         <div class="rv-item-name">{{ itemName(entry.variant?.item) }}</div>
         <div class="rv-item-variant" v-if="entry.variant && variantLabel(entry.variant)">
@@ -115,15 +132,13 @@ const totalQty   = computed(() => props.items.reduce((s, i) => s + i.qty_on_hand
 <style scoped>
 /* rack header card */
 .rv-rack-card {
-  background: linear-gradient(135deg, rgba(249,115,22,.15), rgba(234,88,12,.08));
-  border: 1px solid rgba(249,115,22,.3);
+  border: 1px solid transparent;
   border-radius: 16px; padding: 20px 24px;
   display: flex; align-items: center; gap: 18px;
 }
 .rv-rack-icon {
   width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
-  background: rgba(249,115,22,.15); display: grid; place-items: center;
-  color: #f97316;
+  display: grid; place-items: center;
 }
 .rv-rack-icon svg { width: 26px; height: 26px }
 .rv-rack-info { flex: 1; min-width: 0 }
@@ -167,7 +182,6 @@ const totalQty   = computed(() => props.items.reduce((s, i) => s + i.qty_on_hand
 .rv-img { width: 52px; height: 52px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border) }
 .rv-img-ph {
   width: 52px; height: 52px; border-radius: 10px;
-  background: linear-gradient(135deg, #f97316, #ea580c);
   display: grid; place-items: center;
   font-size: 11px; font-weight: 800; color: #fff; letter-spacing: .05em;
 }
@@ -181,8 +195,7 @@ const totalQty   = computed(() => props.items.reduce((s, i) => s + i.qty_on_hand
 }
 .rv-sku {
   font-family: monospace; font-size: 12px; font-weight: 700;
-  color: #f97316; background: rgba(249,115,22,.08);
-  padding: 2px 7px; border-radius: 5px; border: 1px solid rgba(249,115,22,.2);
+  padding: 2px 7px; border-radius: 5px; border: 1px solid transparent;
 }
 .rv-item-name { font-size: 14px; font-weight: 600; color: var(--fg) }
 .rv-item-variant { font-size: 12px; color: var(--fg-2); margin-top: 2px }

@@ -76,6 +76,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:itemMaster')->group(function () {
         Route::get('/stock-input', [StockInputController::class, 'index'])->name('stock-input.index');
         Route::post('/stock-input/{variant}/set', [StockInputController::class, 'upsert'])->name('stock-input.upsert');
+        Route::post('/stock-input/bulk', [StockInputController::class, 'bulkUpsert'])->name('stock-input.bulk');
         Route::delete('/stock-input/entries/{stockLedger}', [StockInputController::class, 'destroy'])->name('stock-input.destroy');
         Route::get('/stock-input/export', [StockInputController::class, 'export'])->name('stock-input.export');
         Route::post('/stock-input/import', [StockInputController::class, 'import'])->name('stock-input.import');
