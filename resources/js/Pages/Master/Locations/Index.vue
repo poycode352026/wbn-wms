@@ -374,7 +374,16 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
             </tr>
             <tr v-for="(loc, i) in locations.data" :key="loc.id" class="dr">
               <td class="td-rn">{{ (locations.from ?? 1) + i }}</td>
-              <td><span class="code-badge">{{ loc.code }}</span></td>
+              <td>
+                <span class="code-badge"
+                  :style="loc.warehouse ? {
+                    background: whColor(loc.warehouse.id).bg,
+                    color: whColor(loc.warehouse.id).color,
+                    borderColor: whColor(loc.warehouse.id).color + '44',
+                  } : {}">
+                  {{ loc.code }}
+                </span>
+              </td>
               <td class="td-name">{{ loc.name }}</td>
               <td>
                 <span v-if="loc.warehouse" class="wh-badge" :style="{ background: whColor(loc.warehouse.id).bg, color: whColor(loc.warehouse.id).color }">
@@ -489,10 +498,14 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
           <!-- QR -->
           <div class="qr-body">
             <div class="qr-label-preview">
-              <div class="qr-wh-badge" v-if="qrLoc?.warehouse">
+              <div class="qr-wh-badge" v-if="qrLoc?.warehouse"
+                :style="{ color: whColor(qrLoc.warehouse.id).color }">
                 {{ qrLoc.warehouse.code }} — {{ qrLoc.warehouse.name }}
               </div>
-              <div class="qr-code-big">{{ qrLoc?.code }}</div>
+              <div class="qr-code-big"
+                :style="qrLoc?.warehouse ? { color: whColor(qrLoc.warehouse.id).color } : {}">
+                {{ qrLoc?.code }}
+              </div>
               <div class="qr-name-sm">{{ qrLoc?.name }}</div>
               <div class="qr-img-wrap">
                 <div v-if="qrLoading" class="qr-loading">
@@ -625,7 +638,7 @@ function whColor(id) { return WH_COLORS[(id - 1) % WH_COLORS.length] }
 .td-rn{text-align:center;color:var(--fg-dim);font-size:12px;font-weight:500;padding-left:8px;padding-right:8px}
 .tdd{color:var(--fg-2);font-size:13px}.tddesc{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .td-name{font-weight:600;color:var(--fg)}
-.code-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.08em;font-family:monospace;background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.2)}
+.code-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.08em;font-family:monospace;border:1px solid transparent}
 .wh-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
 .sb{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
 .sb-on{color:var(--emerald)}.sb-off{color:var(--fg-dim)}

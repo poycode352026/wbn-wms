@@ -14,6 +14,19 @@ const props = defineProps({
     scannedAt:  String,
 })
 
+// Same palette as Locations page — warehouse ID → color
+const WH_COLORS = [
+    { bg:'rgba(59,130,246,.15)',  color:'#60a5fa' },
+    { bg:'rgba(16,185,129,.15)', color:'#34d399' },
+    { bg:'rgba(249,115,22,.15)', color:'#fb923c' },
+    { bg:'rgba(139,92,246,.15)', color:'#a78bfa' },
+    { bg:'rgba(234,179,8,.15)',  color:'#fbbf24' },
+]
+const whColor = computed(() => {
+    const id = props.warehouse?.id ?? 1
+    return WH_COLORS[(id - 1) % WH_COLORS.length]
+})
+
 function itemName(item) {
     if (!item) return '—'
     if (locale.value === 'zh' && item.name_zh) return item.name_zh
@@ -81,7 +94,7 @@ function variantLabel(v) {
     <div class="wv-section" v-for="loc in locations" :key="loc.id">
       <!-- rack header -->
       <div class="wv-rack-head">
-        <div class="wv-rack-badge">
+        <div class="wv-rack-badge" :style="{ background: whColor.bg, color: whColor.color, borderColor: whColor.color + '44' }">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="11" width="18" height="6" rx="1.5"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
           {{ loc.code }}
         </div>
@@ -190,8 +203,7 @@ function variantLabel(v) {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700;
   font-family: monospace; letter-spacing: .06em;
-  background: rgba(59,130,246,.12); color: #60a5fa;
-  border: 1px solid rgba(59,130,246,.2);
+  border: 1px solid transparent;
 }
 .wv-rack-name { font-size: 13px; font-weight: 600; color: var(--fg); flex: 1 }
 .wv-rack-ct {
