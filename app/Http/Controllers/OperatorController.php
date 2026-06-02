@@ -2,21 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CooldownLog;
 use App\Models\GoodsIssue;
 use App\Models\GoodsIssuePhoto;
 use App\Models\StockLedger;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class OperatorController extends Controller
 {
-    // ── Scan List: operator / wh_admin sees their assigned GI ──────────────────
+    // ── Scan List: operator / wh_admin sees their assigned GI ─────────────────
 
     public function scanList(Request $request): Response
     {
-        $this->authorize($request, ['operator', 'wh_admin']);
+        $this->authorizeOp($request);
 
         $user = $request->user();
 
@@ -25,7 +28,7 @@ class OperatorController extends Controller
                 'warehouse:id,code,name',
                 'department:id,name,code',
                 'requestedBy:id,name',
-                'items:id,goods_issue_id,item_variant_id,requested_qty,requested_uom,actual_qty',
+                'items:id,goods_issue_id,item_variant_id,requested_qty,requested_uom',
                 'items.variant:id,sku,item_id',
                 'items.variant.item:id,name_en,name_id,name_zh',
             ])
@@ -40,11 +43,11 @@ class OperatorController extends Controller
         ]);
     }
 
-    // ── Scan Detail: GI details + location/rack + photo upload ─────────────────
+    // ── Scan Detail: GI details + location/rack info ───────────────────────────
 
     public function scanDetail(Request $request, GoodsIssue $goodsIssue): Response
     {
-        $this->authorize($request, ['operator', 'wh_admin']);
+        $this->authorizeOp($request);
 
         $user = $request->user();
 
@@ -56,10 +59,10 @@ class OperatorController extends Controller
             'warehouse:id,code,name',
             'department:id,name,code',
             'requestedBy:id,name',
-            'items.variant:id,sku,item_id,base_uom,alt_uom',
+            'items.variant:id,sku,item_id',
             'items.variant.item:id,name_en,name_id,name_zh',
             'items.itemWarehouse:id,code,name',
-            'items.lv:id,lv_code,lv_number',
+            'items.lv:id,lv_number',
             'items.employee:id,employee_id,name',
             'photos',
         ]);
@@ -95,11 +98,11 @@ class OperatorController extends Controller
         ]);
     }
 
-    // ── Submit Pickup: upload photo, mark GI completed ──────────────────────────
+    // ── Start Picking: assigned → in_picking ───────────────────────────────────
 
-    public function submitPickup(Request $request, GoodsIssue $goodsIssue): RedirectResponse
+    public function startPicking(Request $request, GoodsIssue $goodsIssue): RedirectResponse
     {
-        $this->authorize($request, ['operator', 'wh_admin']);
+        $this->authorizeOp($request);
 
         $user = $request->user();
 
@@ -107,43 +110,170 @@ class OperatorController extends Controller
             abort(403);
         }
 
-        $request->validate([
-            'photos'   => ['required', 'array', 'min:1'],
-            'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-        ]);
-
-        // Upload proof photos
-        foreach ($request->file('photos') as $file) {
-            $path = $file->store('gi-photos', 'public');
-            GoodsIssuePhoto::create([
-                'goods_issue_id' => $goodsIssue->id,
-                'path'           => $path,
-                'original_name'  => $file->getClientOriginalName(),
-                'stage'          => 'pickup',
-                'uploaded_by'    => $user->id,
-            ]);
+        if ($goodsIssue->status !== 'assigned') {
+            return back()->with('error', 'GI tidak dalam status assigned.');
         }
 
-        // Mark GI as completed
         $goodsIssue->update([
-            'status'       => 'completed',
-            'completed_at' => now(),
-            'picked_by'    => $user->id,
-            'picked_at'    => now(),
+            'status'    => 'in_picking',
+            'picked_by' => $user->id,
+            'picked_at' => now(),
         ]);
 
         return redirect()
-            ->route('operator.scan-list')
-            ->with('success', "GI {$goodsIssue->gi_number} selesai — barang diserahkan.");
+            ->route('operator.scan-detail', $goodsIssue->id)
+            ->with('success', 'Picking dimulai! Siapkan semua barang.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Submit Pickup: in_picking + photos → ready_to_pickup ──────────────────
 
-    private function authorize(Request $request, array $roles): void
+    public function submitPickup(Request $request, GoodsIssue $goodsIssue): RedirectResponse
+    {
+        $this->authorizeOp($request);
+
+        $user = $request->user();
+
+        if ($goodsIssue->assigned_to !== $user->id && $goodsIssue->picked_by !== $user->id) {
+            abort(403);
+        }
+
+        if ($goodsIssue->status !== 'in_picking') {
+            return back()->with('error', 'GI tidak dalam status in_picking. Mulai proses picking terlebih dahulu.');
+        }
+
+        $request->validate([
+            'photos'   => ['required', 'array', 'min:1'],
+            'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp,heic,heif', 'max:8192'],
+        ]);
+
+        DB::transaction(function () use ($request, $goodsIssue, $user) {
+            // Mark all items as ready with actual qty = requested qty
+            foreach ($goodsIssue->items as $item) {
+                $item->update([
+                    'status'     => 'ready',
+                    'actual_qty' => $item->qty_in_base_uom,
+                ]);
+            }
+
+            // Upload proof photos (stage = 'picking')
+            foreach ($request->file('photos') as $file) {
+                $path = $file->store('gi-photos', 'public');
+                GoodsIssuePhoto::create([
+                    'goods_issue_id' => $goodsIssue->id,
+                    'path'           => $path,
+                    'original_name'  => $file->getClientOriginalName(),
+                    'stage'          => 'picking',
+                    'uploaded_by'    => $user->id,
+                ]);
+            }
+
+            $goodsIssue->update(['status' => 'ready_to_pickup']);
+        });
+
+        // Notify Admin Dept requester
+        NotificationService::send(
+            $goodsIssue->requested_by,
+            'GI_READY_PICKUP',
+            "Barang Siap: {$goodsIssue->gi_number}",
+            "Barang Anda sudah disiapkan di staging area. Datang ke gudang dan tunjukkan barcode.",
+            [
+                'gi_id'     => $goodsIssue->id,
+                'gi_number' => $goodsIssue->gi_number,
+                'route'     => route('gi.show', $goodsIssue->id),
+            ]
+        );
+
+        return redirect()
+            ->route('operator.scan-detail', $goodsIssue->id)
+            ->with('success', 'Barang siap! Informasikan ke requester untuk datang ambil.');
+    }
+
+    // ── Confirm Pickup: ready_to_pickup → completed (stock deduction) ──────────
+
+    public function confirmPickup(Request $request, GoodsIssue $goodsIssue): RedirectResponse
+    {
+        $this->authorizeOp($request);
+
+        if ($goodsIssue->status !== 'ready_to_pickup') {
+            return back()->with('error', 'GI belum dalam status ready_to_pickup.');
+        }
+
+        $goodsIssue->load(['items.variant.item']);
+
+        DB::transaction(function () use ($goodsIssue) {
+            foreach ($goodsIssue->items()->where('status', 'ready')->get() as $gItem) {
+                $qty  = (float) ($gItem->actual_qty ?? $gItem->qty_in_base_uom);
+                $whId = $gItem->item_warehouse_id ?? $goodsIssue->warehouse_id;
+
+                // Deduct stock + clear reservation
+                $ledgers = StockLedger::where('item_variant_id', $gItem->item_variant_id)
+                    ->where('warehouse_id', $whId)
+                    ->orderByDesc('qty_reserved')
+                    ->get();
+
+                foreach ($ledgers as $ledger) {
+                    if ($qty <= 0) break;
+                    $clearRes = min((float) $gItem->qty_in_base_uom, (float) $ledger->qty_reserved);
+                    $deduct   = min($qty, (float) $ledger->qty_on_hand);
+                    if ($clearRes > 0) $ledger->decrement('qty_reserved', $clearRes);
+                    if ($deduct > 0)   $ledger->decrement('qty_on_hand', $deduct);
+                    $qty -= $deduct;
+                }
+
+                // Cooldown logging
+                $item = $gItem->variant?->item;
+                if ($item?->has_cooldown && $item->cooldown_days > 0) {
+                    $takenAt       = now()->toDateString();
+                    $cooldownUntil = now()->addDays($item->cooldown_days)->toDateString();
+
+                    CooldownLog::create([
+                        'item_id'         => $item->id,
+                        'item_variant_id' => $gItem->item_variant_id,
+                        'track_type'      => $item->cooldown_track_by,
+                        'lv_id'           => $gItem->lv_id,
+                        'employee_id'     => $gItem->employee_id,
+                        'goods_issue_id'  => $goodsIssue->id,
+                        'taken_at'        => $takenAt,
+                        'cooldown_until'  => $cooldownUntil,
+                    ]);
+
+                    $gItem->update(['cooldown_until' => $cooldownUntil]);
+                }
+            }
+
+            $goodsIssue->update([
+                'status'       => 'completed',
+                'completed_at' => now(),
+            ]);
+        });
+
+        // Notify requester
+        NotificationService::send(
+            $goodsIssue->requested_by,
+            'GI_COMPLETED',
+            "GI Selesai: {$goodsIssue->gi_number}",
+            "Barang GI {$goodsIssue->gi_number} telah berhasil diambil. Terima kasih.",
+            [
+                'gi_id'     => $goodsIssue->id,
+                'gi_number' => $goodsIssue->gi_number,
+                'route'     => route('gi.show', $goodsIssue->id),
+            ]
+        );
+
+        return redirect()
+            ->route('operator.scan-list')
+            ->with('success', "GI {$goodsIssue->gi_number} selesai — barang diserahkan!");
+    }
+
+    // ── Private helpers ────────────────────────────────────────────────────────
+
+    private function authorizeOp(Request $request): void
     {
         $user = $request->user();
-        $ok   = in_array($user->role, $roles) ||
-                !empty(array_intersect($roles, $user->extra_roles ?? []));
+        $ok   = $user && $user->is_active && (
+            in_array($user->role, ['operator', 'wh_admin']) ||
+            !empty(array_intersect(['operator', 'wh_admin'], $user->extra_roles ?? []))
+        );
         if (!$ok) abort(403);
     }
 }

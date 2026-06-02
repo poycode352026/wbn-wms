@@ -132,9 +132,11 @@ Route::middleware('auth')->group(function () {
 
     // ── Operator Scan ─────────────────────────────────────────────────────────────────
     Route::middleware('role:operator,wh_admin')->prefix('operator')->name('operator.')->group(function () {
-        Route::get('/scan',               [OperatorController::class, 'scanList'])->name('scan-list');
-        Route::get('/scan/{goodsIssue}',  [OperatorController::class, 'scanDetail'])->name('scan-detail');
-        Route::post('/scan/{goodsIssue}', [OperatorController::class, 'submitPickup'])->name('submit-pickup');
+        Route::get('/scan',                        [OperatorController::class, 'scanList']    )->name('scan-list');
+        Route::get('/scan/{goodsIssue}',           [OperatorController::class, 'scanDetail']  )->name('scan-detail');
+        Route::post('/scan/{goodsIssue}/start',    [OperatorController::class, 'startPicking'])->name('start-picking');
+        Route::post('/scan/{goodsIssue}/submit',   [OperatorController::class, 'submitPickup'])->name('submit-pickup');
+        Route::post('/scan/{goodsIssue}/confirm',  [OperatorController::class, 'confirmPickup'])->name('confirm-pickup');
     });
 
     // ── Employee Portal ────────────────────────────────────────────────────────────────
