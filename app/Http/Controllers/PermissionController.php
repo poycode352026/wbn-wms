@@ -12,14 +12,16 @@ use Inertia\Response;
 class PermissionController extends Controller
 {
     private const ROLES = [
-        'super_admin', 'admin_dept', 'manager_dept',
-        'warehouse_manager', 'supervisor', 'operator',
+        'super_admin', 'procurement_admin', 'wh_admin',
+        'admin_dept', 'manager_dept',
+        'wh_manager', 'wh_supervisor', 'operator', 'employee',
     ];
 
     private const MODULES = [
         'users', 'departments', 'permissions',
         'warehouses', 'rackMgmt', 'locations',
         'itemMaster', 'goodsReceipt', 'goodsIssue',
+        'vehicles', 'employees',
         'inventoryReport', 'transactionLog', 'auditTrail',
     ];
 

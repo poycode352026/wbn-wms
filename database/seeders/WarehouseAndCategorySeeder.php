@@ -11,32 +11,38 @@ class WarehouseAndCategorySeeder extends Seeder
 {
     public function run(): void
     {
-        // ── Warehouses ────────────────────────────────────────────────────────
-        $km17 = Warehouse::create([
-            'code'      => 'KM17',
-            'name'      => 'Warehouse KM 17',
-            'location'  => 'KM 17, Area Tambang',
-            'is_active' => true,
+
+        // 1. General Warehouse (priority 1 = closest)
+        $generalWarehouse = Warehouse::create([
+            'code'       => 'GNR',
+            'name'       => 'Warehouse General',
+            'location'   => 'WBN Office Gedung Putih Lantai 2',
+            'is_active'  => true,
+            'sort_order' => 1,
         ]);
 
-        // $whL2 = Warehouse::create([
-        //     'code'      => 'WH-L2',
-        //     'name'      => 'Whitehouse Lantai 2',
-        //     'location'  => 'Gedung Whitehouse, Lantai 2 — Barang Office & Titipan KM17',
-        //     'is_active' => true,
-        // ]);
+        // 2. IT Warehouse (priority 2)
+        $itWarehouse = Warehouse::create([
+            'code'       => 'IT',
+            'name'       => 'Warehouse IT',
+            'location'   => 'WBN Office Gedung Putih Lantai 1 - Counter Room',
+            'is_active'  => true,
+            'sort_order' => 2,
+        ]);
 
-        // $whL1 = Warehouse::create([
-        //     'code'      => 'WH-L1',
-        //     'name'      => 'Whitehouse Lantai 1',
-        //     'location'  => 'Gedung Whitehouse, Lantai 1 — Barang IT',
-        //     'is_active' => true,
-        // ]);
+        // ── Warehouses ────────────────────────────────────────────────────────
+        $km17 = Warehouse::create([
+            'code'       => 'KM17',
+            'name'       => 'Warehouse KM 17',
+            'location'   => 'KM 17, Area Tambang',
+            'is_active'  => true,
+            'sort_order' => 3,
+        ]);
 
+        
         // ── Rack Locations ────────────────────────────────────────────────────
         // KM17 racks
         $km17Racks = [];
-
         for ($rack = 1; $rack <= 12; $rack++) {
             foreach (range('A', 'F') as $shelf) {
                 for ($level = 1; $level <= 4; $level++) {
@@ -55,26 +61,47 @@ class WarehouseAndCategorySeeder extends Seeder
             Location::create(array_merge($rack, ['warehouse_id' => $km17->id, 'is_active' => true]));
         }
 
-        // // WH-L2 racks
-        // $l2Racks = [
-        //     ['code' => 'L2-A-01', 'name' => 'Lantai 2 · Row A · Shelf 01'],
-        //     ['code' => 'L2-A-02', 'name' => 'Lantai 2 · Row A · Shelf 02'],
-        //     ['code' => 'L2-B-01', 'name' => 'Lantai 2 · Row B · Shelf 01'],
-        //     ['code' => 'L2-B-02', 'name' => 'Lantai 2 · Row B · Shelf 02'],
-        // ];
-        // foreach ($l2Racks as $rack) {
-        //     Location::create(array_merge($rack, ['warehouse_id' => $whL2->id, 'is_active' => true]));
-        // }
+        // ── Holding Area for Every Warehouse ───────────────────────────────
 
-        // // WH-L1 racks
-        // $l1Racks = [
-        //     ['code' => 'L1-A-01', 'name' => 'Lantai 1 · Row A · Shelf 01'],
-        //     ['code' => 'L1-A-02', 'name' => 'Lantai 1 · Row A · Shelf 02'],
-        //     ['code' => 'L1-B-01', 'name' => 'Lantai 1 · Row B · Shelf 01'],
-        // ];
-        // foreach ($l1Racks as $rack) {
-        //     Location::create(array_merge($rack, ['warehouse_id' => $whL1->id, 'is_active' => true]));
-        // }
+        $holdingAreaDescription = 'A designated temporary storage area used to hold items before they are processed, inspected, transferred, issued, or relocated to their final destination.';
+
+        Location::create([
+            'warehouse_id' => $generalWarehouse->id,
+            'code'         => 'GNR-HA',
+            'name'         => 'General Warehouse . Holding Area',
+            'description'  => $holdingAreaDescription,
+            'is_active'    => true,
+        ]);
+
+        Location::create([
+            'warehouse_id' => $itWarehouse->id,
+            'code'         => 'IT-HA',
+            'name'         => 'IT Warehouse . Holding Area',
+            'description'  => $holdingAreaDescription,
+            'is_active'    => true,
+        ]);
+
+        Location::create([
+            'warehouse_id' => $km17->id,
+            'code'         => 'KM17-HA',
+    'name'         => 'KM17 Warehouse . Holding Area',
+    'description'  => $holdingAreaDescription,
+    'is_active'    => true,
+]);
+
+        // Rack Numbers
+        $generalRacks = [15, 8, 19, 13, 14];
+
+        foreach ($generalRacks as $rack) {
+            foreach (['A', 'B'] as $level) {
+                Location::create([
+                    'warehouse_id' => $generalWarehouse->id,
+                    'code'         => "RN-{$rack}-{$level}",
+                    'name'         => "Rack Number {$rack} . Level {$level}",
+                    'is_active'    => true,
+                ]);
+            }
+        }
 
         // ── Global Categories (not tied to any warehouse) ─────────────────────
         $categories = [

@@ -224,15 +224,18 @@ const bulkWh          = ref('')
 const bulkLocId       = ref('')
 const bulkProcessing  = ref(false)
 
-// Each row: { variantId, query (search text), open, qty, selectedUom }
+// Each row: { variantId, query, qty, selectedUom }
 const newBulkRow = () => ({
     variantId:   null,
     query:       '',
-    open:        false,
     qty:         '',
     selectedUom: 'base',   // 'base' | 'alt'
 })
 const bulkRows = ref([newBulkRow()])
+
+// Teleported dropdown state
+const activeDropIdx  = ref(-1)
+const dropFixedStyle = ref({})
 
 const bulkLocations = computed(() => {
     if (!bulkWh.value) return []
@@ -243,12 +246,16 @@ const bulkLocations = computed(() => {
 watch(() => bulkWh.value, () => { bulkLocId.value = '' })
 
 function openBulk() {
-    bulkWh.value   = ''
-    bulkLocId.value = ''
-    bulkRows.value  = [newBulkRow()]
-    bulkOpen.value  = true
+    bulkWh.value        = ''
+    bulkLocId.value     = ''
+    bulkRows.value      = [newBulkRow()]
+    activeDropIdx.value = -1
+    bulkOpen.value      = true
 }
-function closeBulk() { bulkOpen.value = false }
+function closeBulk() {
+    activeDropIdx.value = -1
+    bulkOpen.value      = false
+}
 
 function addBulkRow() { bulkRows.value.push(newBulkRow()) }
 function removeBulkRow(idx) {
@@ -268,11 +275,11 @@ function filteredVariants(row) {
 }
 
 function selectBulkVariant(row, v) {
-    row.variantId   = v.id
-    row.query       = v.label || v.sku
-    row.open        = false
-    row.qty         = ''
-    row.selectedUom = 'base'
+    row.variantId       = v.id
+    row.query           = v.label || v.sku
+    row.qty             = ''
+    row.selectedUom     = 'base'
+    activeDropIdx.value = -1
 }
 
 // Get the full allVariants record for a row
@@ -296,8 +303,20 @@ function rowConvHint(row) {
     return `= ${(raw * v.alt_uom_conversion).toLocaleString()} ${v.base_uom}`
 }
 
-function openDropdown(row) { row.open = true }
-function closeDropdown(row) { setTimeout(() => { row.open = false }, 160) }
+function openDropdown(idx, event) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    dropFixedStyle.value = {
+        position: 'fixed',
+        top:      (rect.bottom + 4) + 'px',
+        left:     rect.left + 'px',
+        width:    rect.width + 'px',
+        zIndex:   9999,
+    }
+    activeDropIdx.value = idx
+}
+function closeDropdown() {
+    setTimeout(() => { activeDropIdx.value = -1 }, 160)
+}
 
 function submitBulk() {
     if (bulkProcessing.value) return
@@ -526,83 +545,60 @@ const STAT_COLORS = [
             </button>
           </div>
 
-          <!-- Rows — card layout -->
+          <!-- Rows — single-line layout -->
           <div class="bulk-rows">
-            <div class="bulk-card" v-for="(row, idx) in bulkRows" :key="idx">
+            <div class="bulk-row" v-for="(row, idx) in bulkRows" :key="idx">
 
-              <!-- Top: number + SKU combobox + delete -->
-              <div class="bulk-card-top">
-                <span class="bulk-row-num">{{ idx + 1 }}</span>
+              <span class="bulk-row-num">{{ idx + 1 }}</span>
 
-                <!-- SKU combobox -->
-                <div class="bulk-combo-wrap">
-                  <input
-                    class="si-input bulk-combo-input"
-                    :class="{ 'has-val': row.variantId }"
-                    type="text"
-                    v-model="row.query"
-                    :placeholder="$t('si.searchSku')"
-                    autocomplete="off"
-                    @focus="openDropdown(row)"
-                    @blur="closeDropdown(row)"
-                    @input="row.variantId = null"
-                  />
-                  <!-- Dropdown list -->
-                  <div v-if="row.open && filteredVariants(row).length" class="bulk-dropdown">
-                    <div
-                      v-for="v in filteredVariants(row)"
-                      :key="v.id"
-                      class="bulk-option"
-                      @mousedown.prevent="selectBulkVariant(row, v)"
-                    >
-                      <span class="bulk-opt-sku">{{ v.sku }}</span>
-                      <span class="bulk-opt-name">{{ v.name_en || v.name_id || '' }}</span>
-                    </div>
-                    <div v-if="filteredVariants(row).length === 0" class="bulk-option bulk-opt-empty">
-                      No results
-                    </div>
-                  </div>
-                </div>
-
-                <button type="button" class="bulk-del" @click="removeBulkRow(idx)" :disabled="bulkRows.length === 1">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                </button>
+              <!-- SKU combobox (dropdown via Teleport, no clipping) -->
+              <div class="bulk-combo-wrap">
+                <input
+                  class="si-input bulk-combo-input"
+                  :class="{ 'has-val': row.variantId }"
+                  type="text"
+                  v-model="row.query"
+                  :placeholder="$t('si.searchSku')"
+                  autocomplete="off"
+                  @focus="openDropdown(idx, $event)"
+                  @blur="closeDropdown()"
+                  @input="row.variantId = null"
+                />
               </div>
 
-              <!-- Bottom: qty + UOM toggle — only when variant selected -->
-              <div v-if="row.variantId" class="bulk-card-bottom">
-                <!-- Qty input -->
-                <input
-                  class="si-input bulk-qty-input"
-                  type="number"
-                  v-model="row.qty"
-                  step="any" min="0"
-                  :placeholder="'0 ' + (row.selectedUom === 'alt' && rowHasAlt(row) ? variantOf(row).alt_uom : (variantOf(row)?.base_uom ?? ''))"
-                />
+              <!-- Qty -->
+              <input
+                class="si-input bulk-qty-input"
+                type="number"
+                v-model="row.qty"
+                step="any" min="0"
+                :disabled="!row.variantId"
+                :placeholder="row.variantId
+                  ? ('0 ' + (row.selectedUom === 'alt' && rowHasAlt(row) ? variantOf(row).alt_uom : (variantOf(row)?.base_uom ?? '')))
+                  : '—'"
+              />
 
-                <!-- UOM toggle if alt exists, else just label -->
+              <!-- UOM: toggle (if alt exists) or static label — only when variant selected -->
+              <template v-if="row.variantId">
                 <div v-if="rowHasAlt(row)" class="bulk-uom-toggle">
-                  <button
-                    type="button"
-                    class="bulk-uom-btn"
-                    :class="{ active: row.selectedUom === 'base' }"
-                    @click="row.selectedUom = 'base'; row.qty = ''"
-                  >{{ variantOf(row).base_uom }}</button>
-                  <button
-                    type="button"
-                    class="bulk-uom-btn"
-                    :class="{ active: row.selectedUom === 'alt' }"
-                    @click="row.selectedUom = 'alt'; row.qty = ''"
-                  >{{ variantOf(row).alt_uom }}</button>
+                  <button type="button" class="bulk-uom-btn" :class="{ active: row.selectedUom === 'base' }"
+                    @click="row.selectedUom = 'base'; row.qty = ''">{{ variantOf(row).base_uom }}</button>
+                  <button type="button" class="bulk-uom-btn" :class="{ active: row.selectedUom === 'alt' }"
+                    @click="row.selectedUom = 'alt'; row.qty = ''">{{ variantOf(row).alt_uom }}</button>
                 </div>
                 <span v-else class="bulk-uom-static">{{ variantOf(row)?.base_uom ?? '' }}</span>
 
-                <!-- Conversion hint -->
+                <!-- Conversion hint (inline, appears only when alt UOM qty entered) -->
                 <span v-if="rowConvHint(row)" class="bulk-conv-hint">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
                   {{ rowConvHint(row) }}
                 </span>
-              </div>
+              </template>
+
+              <!-- Delete -->
+              <button type="button" class="bulk-del" @click="removeBulkRow(idx)" :disabled="bulkRows.length === 1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
 
             </div>
           </div>
@@ -622,6 +618,26 @@ const STAT_COLORS = [
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Bulk SKU dropdown — fixed position, avoids overflow clipping -->
+    <div
+      v-if="bulkOpen && activeDropIdx >= 0"
+      class="bulk-dropdown-fixed"
+      :style="dropFixedStyle"
+    >
+      <template v-if="filteredVariants(bulkRows[activeDropIdx]).length">
+        <div
+          v-for="v in filteredVariants(bulkRows[activeDropIdx])"
+          :key="v.id"
+          class="bulk-option"
+          @mousedown.prevent="selectBulkVariant(bulkRows[activeDropIdx], v)"
+        >
+          <span class="bulk-opt-sku">{{ v.sku }}</span>
+          <span class="bulk-opt-name">{{ v.name_en || v.name_id || '' }}</span>
+        </div>
+      </template>
+      <div v-else class="bulk-option bulk-opt-empty">No results</div>
     </div>
 
     <!-- import modal -->
@@ -856,7 +872,7 @@ const STAT_COLORS = [
 .si-flash-ok { background:rgba(16,185,129,.12); color:#34d399; border:1px solid rgba(16,185,129,.25) }
 .si-flash-err { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.25) }
 .si-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px }
-.si-modal { background:var(--surface); border:1px solid var(--border-2); border-radius:16px; box-shadow:var(--shadow-lg); width:100%; max-width:680px; max-height:90vh; overflow-y:auto; color:var(--fg) }
+.si-modal { background:var(--surface); border:1px solid var(--border-2); border-radius:16px; box-shadow:var(--shadow-lg); width:100%; max-width:680px; max-height:90vh; overflow-y:auto; overflow-x:hidden; color:var(--fg) }
 .si-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 24px 16px; border-bottom:1px solid var(--border) }
 .si-modal-title { font-size:16px; font-weight:700; color:var(--fg) }
 .si-modal-sub { font-size:12.5px; color:var(--fg-2); margin-top:3px }
@@ -1029,7 +1045,7 @@ const STAT_COLORS = [
 .si-lb-close svg { width:16px; height:16px }
 
 /* ── Bulk Stock Modal ────────────────────────────────────────────────────── */
-.si-modal-bulk { max-width:760px }
+.si-modal-bulk { max-width:min(960px, calc(100vw - 32px)) }
 .bulk-loc-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px }
 @media(max-width:540px){ .bulk-loc-row{ grid-template-columns:1fr } }
 
@@ -1046,34 +1062,32 @@ const STAT_COLORS = [
 }
 .bulk-add-row:hover { background:rgba(139,92,246,.22) }
 
-.bulk-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:4px; max-height:400px; overflow-y:auto }
+.bulk-rows { display:flex; flex-direction:column; gap:6px; margin-bottom:4px; max-height:380px; overflow-y:auto }
 
-/* card per row */
-.bulk-card {
+/* single-line row */
+.bulk-row {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
   background:var(--surface-2); border:1px solid var(--border);
-  border-radius:10px; padding:10px 12px;
-  display:flex; flex-direction:column; gap:8px;
+  border-radius:10px; padding:8px 10px;
 }
-
-.bulk-card-top { display:flex; align-items:center; gap:8px }
 
 .bulk-row-num {
   font-size:11px; font-weight:700; color:var(--fg-dim);
-  width:20px; text-align:center; flex-shrink:0;
+  width:18px; text-align:center; flex-shrink:0;
 }
 
 /* combobox */
-.bulk-combo-wrap { position:relative; flex:1 }
+.bulk-combo-wrap { position:relative; flex:1; min-width:180px; max-width:100% }
 .bulk-combo-input { width:100%; box-sizing:border-box }
 .bulk-combo-input.has-val {
   border-color:rgba(139,92,246,.45);
   background:rgba(139,92,246,.06);
 }
 
-.bulk-dropdown {
-  position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:200;
+/* dropdown rendered at body level (fixed position via Teleport) */
+.bulk-dropdown-fixed {
   background:var(--surface); border:1px solid var(--border-2);
-  border-radius:9px; box-shadow:0 10px 28px rgba(0,0,0,.4);
+  border-radius:9px; box-shadow:0 10px 32px rgba(0,0,0,.5);
   overflow:hidden; max-height:220px; overflow-y:auto;
 }
 .bulk-option {
@@ -1091,12 +1105,7 @@ const STAT_COLORS = [
 }
 .bulk-opt-empty { color:var(--fg-dim); font-size:12px; cursor:default }
 
-/* bottom row: qty + uom toggle + hint */
-.bulk-card-bottom {
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-  padding-left:28px;
-}
-.bulk-qty-input { width:120px; flex-shrink:0 }
+.bulk-qty-input { width:90px; flex-shrink:0 }
 
 /* UOM toggle */
 .bulk-uom-toggle {

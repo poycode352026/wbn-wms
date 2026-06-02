@@ -75,6 +75,7 @@ class ItemController extends Controller
                 'alt_uom_conversion' => $i->alt_uom_conversion !== null ? (float) $i->alt_uom_conversion : null,
                 'minimum_stock'      => (float) $i->minimum_stock,
                 'has_cooldown'       => $i->has_cooldown,
+                'is_mandatory'       => $i->is_mandatory,
                 'cooldown_days'      => $i->cooldown_days,
                 'cooldown_track_by'  => $i->cooldown_track_by,
                 'is_active'          => $i->is_active,

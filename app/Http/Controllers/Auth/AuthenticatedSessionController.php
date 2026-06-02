@@ -33,6 +33,21 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        $user = auth()->user();
+
+        // Employees → employee portal (never follow intended URL)
+        if ($user->role === 'employee') {
+            return redirect()->route('portal.dashboard');
+        }
+
+        // Operators (primary role) → mobile operator portal
+        if ($user->role === 'operator') {
+            return redirect()->route('operator.scan-list');
+        }
+
+        // Everyone else (wh_admin, super_admin, etc.) → normal dashboard
+        // If a wh_admin also has operator access, they still land on the dashboard
+        // and can navigate to the operator portal via the sidebar menu.
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

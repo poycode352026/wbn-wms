@@ -15,8 +15,10 @@ return new class extends Migration
             $table->decimal('requested_qty', 10, 2);
             $table->string('requested_uom', 50);
             $table->decimal('qty_in_base_uom', 10, 2);
-            $table->decimal('actual_qty', 10, 2)->nullable();
+            $table->decimal('actual_qty', 10, 2)->nullable();     // diisi operator saat picking
             $table->string('uom_used', 50);
+            $table->text('item_reason')->nullable();              // alasan per item (WAJIB jika cooldown)
+            $table->string('store_to', 255)->nullable();          // kemana barang: "End User: Pak Budi", "LV-001", "Area Tambang C"
             $table->foreignId('lv_id')->nullable()->constrained('vehicles')->nullOnDelete();
             $table->foreignId('employee_id')->nullable()->constrained('employees')->nullOnDelete();
             $table->date('cooldown_until')->nullable();

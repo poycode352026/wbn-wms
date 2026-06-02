@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -19,6 +20,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'extra_roles',
         'is_active',
         'department_id',
         'last_login_at',
@@ -36,7 +38,25 @@ class User extends Authenticatable
             'last_login_at'     => 'datetime',
             'password'          => 'hashed',
             'is_active'         => 'boolean',
+            'extra_roles'       => 'array',
         ];
+    }
+
+    /**
+     * Check if the user has a given role (primary or extra).
+     */
+    public function hasRole(string $role): bool
+    {
+        if ($this->role === $role) return true;
+        return in_array($role, $this->extra_roles ?? []);
+    }
+
+    /**
+     * Check if the user has operator portal access.
+     */
+    public function isOperator(): bool
+    {
+        return $this->hasRole('operator');
     }
 
     public function department(): BelongsTo
@@ -47,5 +67,10 @@ class User extends Authenticatable
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class);
     }
 }

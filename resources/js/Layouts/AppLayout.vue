@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePage, router, Link } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 
@@ -31,7 +31,7 @@ function canDo(module, action = 'view') {
 
 // Sidebar section visibility helpers
 const showSystem    = computed(() => canDo('users') || canDo('departments') || role.value === 'super_admin')
-const showWarehouse = computed(() => canDo('warehouses') || canDo('locations'))
+const showWarehouse = computed(() => canDo('warehouses') || canDo('locations') || canDo('vehicles') || canDo('employees'))
 const showInventory = computed(() => canDo('itemMaster') || canDo('goodsReceipt') || canDo('goodsIssue'))
 const showReports   = computed(() => canDo('inventoryReport') || canDo('transactionLog'))
 
@@ -73,6 +73,63 @@ function toggleUser(e) { e.stopPropagation(); bellOpen.value = false; userOpen.v
 function closeDropdowns() { bellOpen.value = false; userOpen.value = false }
 onMounted(()  => document.addEventListener('click', closeDropdowns))
 onUnmounted(() => document.removeEventListener('click', closeDropdowns))
+
+// ── notifications ─────────────────────────────────────────────────────
+const localNotifs = ref([...(page.props.auth?.notifications ?? [])])
+watch(() => page.props.auth?.notifications, (val) => {
+    localNotifs.value = [...(val ?? [])]
+}, { deep: true })
+const unreadCount = computed(() => localNotifs.value.filter(n => !n.is_read).length)
+
+function timeAgo(dateStr) {
+    if (!dateStr) return ''
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1)  return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    return `${Math.floor(h / 24)}d ago`
+}
+
+function notifItemClass(type) {
+    if (type === 'gr_arrived')   return 'dd-info'   // blue  — goods arrived, inspect needed
+    if (type === 'gr_inspected') return 'dd-amber'  // amber — awaiting supervisor approval
+    if (type === 'gr_completed') return 'dd-ok'     // green — stock updated, all done
+    return 'dd-info'
+}
+
+function getCsrf() {
+    return document.head.querySelector('meta[name="csrf-token"]')?.content ?? ''
+}
+
+function markNotifRead(notif) {
+    if (!notif.is_read) {
+        notif.is_read = true
+        fetch(route('notifications.read', notif.id), {
+            method:  'POST',
+            headers: { 'X-CSRF-TOKEN': getCsrf(), 'Accept': 'application/json' },
+        })
+    }
+    bellOpen.value = false
+    // Navigate to relevant page when notification is clicked
+    // GI notifications include a full URL in data.route; GR uses data.gr_id
+    if (notif.data?.route && (notif.data.route.startsWith('/') || notif.data.route.includes('://'))) {
+        router.visit(notif.data.route)
+    } else if (notif.data?.gi_id) {
+        router.visit(route('gi.show', notif.data.gi_id))
+    } else if (notif.data?.gr_id) {
+        router.visit(route('gr.show', notif.data.gr_id))
+    }
+}
+
+function markAllRead() {
+    localNotifs.value.forEach(n => (n.is_read = true))
+    fetch(route('notifications.read-all'), {
+        method:  'POST',
+        headers: { 'X-CSRF-TOKEN': getCsrf(), 'Accept': 'application/json' },
+    })
+}
 
 // ── date ──────────────────────────────────────────────────────────────
 const dateStr = computed(() => {
@@ -147,6 +204,14 @@ function logout() { router.post(route('logout')) }
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="11" width="18" height="6" rx="1.5"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
           <span class="lbl">{{ $t('menu.rackManagement') }}</span>
         </Link>
+        <Link v-if="canDo('vehicles')" class="nav-item" :class="{ active: route().current('vehicles.*') }" :href="route('vehicles.index')" :data-tip="$t('menu.vehicles')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          <span class="lbl">{{ $t('menu.vehicles') }}</span>
+        </Link>
+        <Link v-if="canDo('employees')" class="nav-item" :class="{ active: route().current('employees.*') }" :href="route('employees.index')" :data-tip="$t('menu.employees')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="lbl">{{ $t('menu.employees') }}</span>
+        </Link>
       </div>
 
       <!-- Inventory -->
@@ -160,14 +225,19 @@ function logout() { router.post(route('logout')) }
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-6"/></svg>
           <span class="lbl">{{ $t('menu.stockInput') }}</span>
         </Link>
-        <a v-if="canDo('goodsReceipt')" class="nav-item" href="#" :data-tip="$t('menu.goodsReceipt')">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg>
+        <Link v-if="canDo('goodsReceipt')" class="nav-item" :class="{ active: route().current('gr.*') }" :href="route('gr.index')" :data-tip="$t('menu.goodsReceipt')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><path d="m12 15 3 3 5-5"/></svg>
           <span class="lbl">{{ $t('menu.goodsReceipt') }}</span><span class="lbl-badge">GR</span>
-        </a>
-        <a v-if="canDo('goodsIssue')" class="nav-item" href="#" :data-tip="$t('menu.goodsIssue')">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16V8"/><path d="m8 12 4-4 4 4"/></svg>
+        </Link>
+        <Link v-if="canDo('goodsIssue')" class="nav-item" :class="{ active: route().current('gi.*') }" :href="route('gi.index')" :data-tip="$t('menu.goodsIssue')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><path d="m16 15-3 3-3-3"/></svg>
           <span class="lbl">{{ $t('menu.goodsIssue') }}</span><span class="lbl-badge">GI</span>
-        </a>
+        </Link>
+        <!-- Operator Scan — visible to operator + wh_admin -->
+        <Link v-if="role === 'operator' || role === 'wh_admin'" class="nav-item" :class="{ active: route().current('operator.*') }" :href="route('operator.scan-list')" :data-tip="$t('menu.operatorScan')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+          <span class="lbl">{{ $t('menu.operatorScan') }}</span>
+        </Link>
         <a class="nav-item" href="#" :data-tip="$t('menu.transfer')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H8"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h13"/></svg>
           <span class="lbl">{{ $t('menu.transfer') }}</span>
@@ -241,26 +311,44 @@ function logout() { router.post(route('logout')) }
         <div class="dd-wrap" style="position:relative">
           <button class="icon-btn nb-bell" @click="toggleBell" type="button" :aria-label="$t('nav.notifications')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-            <span class="nb-badge">3</span>
+            <span v-if="unreadCount > 0" class="nb-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
           </button>
-          <div class="dd-menu" :class="{ open: bellOpen }" @click.stop>
+          <div class="dd-menu notif-dd" :class="{ open: bellOpen }" @click.stop>
             <div class="dd-head">
               <span class="dd-head-title">{{ $t('nav.notifications') }}</span>
-              <span class="dd-pill">{{ $t('nav.nNew', { n: 3 }) }}</span>
+              <div class="dd-head-right">
+                <span v-if="unreadCount > 0" class="dd-pill">{{ $t('nav.nNew', { n: unreadCount }) }}</span>
+                <button v-if="unreadCount > 0" class="dd-read-all-btn" type="button" @click.stop="markAllRead">{{ $t('nav.markAllRead') }}</button>
+              </div>
             </div>
-            <div class="dd-item dd-warn">
-              <div class="dd-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-              <div><div class="dd-item-title">{{ $t('notif.lowStock') }}</div><div class="dd-item-meta">{{ $t('notif.lowStockMsg') }}</div></div>
+            <!-- empty state -->
+            <div v-if="localNotifs.length === 0" class="dd-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              <span>{{ $t('nav.noNotifications') }}</span>
             </div>
-            <div class="dd-item dd-info">
-              <div class="dd-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
-              <div><div class="dd-item-title">{{ $t('notif.pendingGR') }}</div><div class="dd-item-meta">{{ $t('notif.pendingGRMsg') }}</div></div>
+            <!-- notification list -->
+            <div v-else class="notif-list">
+              <div v-for="notif in localNotifs" :key="notif.id"
+                   class="dd-item" :class="[notifItemClass(notif.type), { 'dd-unread': !notif.is_read }]"
+                   @click="markNotifRead(notif)">
+                <div class="dd-ico">
+                  <!-- gr_arrived → package/box icon (blue) -->
+                  <svg v-if="notif.type === 'gr_arrived'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8 12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+                  <!-- gr_inspected → clipboard check icon (amber) -->
+                  <svg v-else-if="notif.type === 'gr_inspected'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+                  <!-- gr_completed → trending-up / stock icon (green) -->
+                  <svg v-else-if="notif.type === 'gr_completed'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-6"/></svg>
+                  <!-- default → info icon -->
+                  <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                </div>
+                <div class="notif-body">
+                  <div class="dd-item-title">{{ notif.title }}</div>
+                  <div class="dd-item-meta">{{ notif.message }}</div>
+                  <div class="notif-time">{{ timeAgo(notif.created_at) }}</div>
+                </div>
+                <div v-if="!notif.is_read" class="notif-dot"></div>
+              </div>
             </div>
-            <div class="dd-item dd-ok">
-              <div class="dd-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
-              <div><div class="dd-item-title">{{ $t('notif.transferDone') }}</div><div class="dd-item-meta">{{ $t('notif.transferMsg') }}</div></div>
-            </div>
-            <div class="dd-foot"><a href="#" class="dd-link">{{ $t('nav.viewAllNotif') }}</a></div>
           </div>
         </div>
 
@@ -474,9 +562,9 @@ function logout() { router.post(route('logout')) }
 }
 .nb-left{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
 .nb-title{font-size:18px;font-weight:700;letter-spacing:-.015em}
-.nb-crumbs{font-size:12px;color:var(--fg-2);display:flex;align-items:center;gap:6px}
+.nb-crumbs{font-size:12px;color:var(--fg-2);display:flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap}
 .nb-crumbs .sep{opacity:.5}
-.nb-crumbs .here{color:var(--fg)}
+.nb-crumbs .here{color:var(--fg);display:flex;align-items:center;gap:6px}
 .nb-right{display:flex;align-items:center;gap:8px}
 .nb-divider{width:1px;height:22px;background:var(--border);margin:0 4px}
 
@@ -572,9 +660,10 @@ function logout() { router.post(route('logout')) }
   display:grid;place-items:center;flex-shrink:0;
 }
 .dd-ico svg{width:16px;height:16px}
-.dd-warn .dd-ico{background:rgba(239,68,68,.12);color:var(--rose)}
-.dd-info .dd-ico{background:rgba(59,130,246,.12);color:var(--blue-500)}
-.dd-ok   .dd-ico{background:rgba(16,185,129,.12);color:var(--emerald)}
+.dd-warn   .dd-ico{background:rgba(239,68,68,.12);color:var(--rose)}
+.dd-info   .dd-ico{background:rgba(59,130,246,.12);color:var(--blue-500)}
+.dd-ok     .dd-ico{background:rgba(16,185,129,.12);color:var(--emerald)}
+.dd-amber  .dd-ico{background:rgba(245,158,11,.12);color:var(--amber-500)}
 .dd-item-title{font-size:13px;font-weight:600;line-height:1.35}
 .dd-item-meta{font-size:11.5px;color:var(--fg-2);margin-top:2px}
 .dd-foot{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:8px;text-align:center}
@@ -621,4 +710,29 @@ function logout() { router.post(route('logout')) }
   .lang-switch{display:none}
   .user-btn .un{display:none}
 }
+
+/* ── notification dropdown ─────────────────────────────────────────── */
+.notif-dd{min-width:320px}
+.dd-head-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.dd-read-all-btn{
+  appearance:none;border:0;background:transparent;
+  color:var(--orange-500);font-size:11px;font-weight:600;
+  cursor:pointer;font-family:inherit;padding:2px 4px;border-radius:4px;
+  transition:background 180ms ease;white-space:nowrap;
+}
+.dd-read-all-btn:hover{background:var(--hover)}
+.notif-list{max-height:360px;overflow-y:auto}
+.notif-body{flex:1;min-width:0}
+.notif-time{font-size:10.5px;color:var(--fg-dim);margin-top:3px}
+.notif-dot{
+  width:8px;height:8px;border-radius:999px;
+  background:var(--orange-500);flex-shrink:0;align-self:center;
+}
+.dd-unread{background:rgba(249,115,22,.04)}
+.dd-unread:hover{background:rgba(249,115,22,.08)}
+.dd-empty{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:28px 16px;color:var(--fg-dim);font-size:12.5px;
+}
+.dd-empty svg{width:32px;height:32px;opacity:.4}
 </style>

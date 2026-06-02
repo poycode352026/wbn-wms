@@ -20,7 +20,10 @@ class DepartmentController extends Controller
         $dir     = $request->dir === 'desc' ? 'desc' : 'asc';
 
         $departments = Department::query()
-            ->withCount('users')
+            ->withCount([
+                'users',
+                'employees as employees_count' => fn ($q) => $q->where('is_active', true),
+            ])
             ->with('admins')
             ->when($request->search, fn ($q, $s) =>
                 $q->where(fn ($q2) =>
@@ -34,12 +37,13 @@ class DepartmentController extends Controller
             ->paginate(15)
             ->withQueryString()
             ->through(fn ($d) => [
-                'id'          => $d->id,
-                'code'        => $d->code,
-                'name'        => $d->name,
-                'users_count' => $d->users_count,
-                'is_active'   => $d->is_active,
-                'admins'      => $d->admins->map(fn($u) => ['id' => $u->id, 'name' => $u->name, 'role' => $u->role])->values(),
+                'id'              => $d->id,
+                'code'            => $d->code,
+                'name'            => $d->name,
+                'users_count'     => $d->users_count,
+                'employees_count' => $d->employees_count,
+                'is_active'       => $d->is_active,
+                'admins'          => $d->admins->map(fn($u) => ['id' => $u->id, 'name' => $u->name, 'role' => $u->role])->values(),
             ]);
 
         return Inertia::render('Master/Departments/Index', [

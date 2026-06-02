@@ -9,10 +9,12 @@ const props = defineProps({ roleCounts: Object, rolePermissions: Object })
 
 const ROLES = [
     { code: 'super_admin',       locked: true  },
+    { code: 'procurement_admin', locked: false },
+    { code: 'wh_admin',          locked: false },
     { code: 'admin_dept',        locked: false },
     { code: 'manager_dept',      locked: false },
-    { code: 'warehouse_manager', locked: false },
-    { code: 'supervisor',        locked: false },
+    { code: 'wh_manager',        locked: false },
+    { code: 'wh_supervisor',     locked: false },
     { code: 'operator',          locked: false },
 ]
 
@@ -26,6 +28,26 @@ const MODULES = [
 // [view, create, edit, delete, approve] — null = N/A
 const DEFAULTS = {
     super_admin:       { '*': [1,1,1,1,1] },
+    procurement_admin: {
+        '*':             [0,0,0,0,null],
+        warehouses:      [1,0,0,0,null],
+        locations:       [1,0,0,0,null],
+        itemMaster:      [1,0,0,0,null],
+        goodsReceipt:    [1,1,1,0,null],
+        inventoryReport: [1,0,0,0,null],
+    },
+    wh_admin: {
+        '*':             [0,0,0,0,null],
+        departments:     [1,0,0,0,null],
+        warehouses:      [1,0,0,0,null],
+        rackMgmt:        [1,0,0,0,null],
+        locations:       [1,0,0,0,null],
+        itemMaster:      [1,0,0,0,null],
+        goodsReceipt:    [1,0,1,0,null],
+        goodsIssue:      [1,0,0,0,null],
+        inventoryReport: [1,0,0,0,null],
+        transactionLog:  [1,0,0,0,null],
+    },
     admin_dept: {
         '*':             [0,0,0,0,null],
         departments:     [1,0,0,0,null],
@@ -44,7 +66,7 @@ const DEFAULTS = {
         inventoryReport: [1,0,0,0,null],
         transactionLog:  [1,0,0,0,null],
     },
-    warehouse_manager: {
+    wh_manager: {
         '*':             [0,0,0,0,null],
         users:           [1,0,0,0,null],
         departments:     [1,0,0,0,null],
@@ -58,7 +80,7 @@ const DEFAULTS = {
         transactionLog:  [1,0,0,0,null],
         auditTrail:      [1,0,0,0,null],
     },
-    supervisor: {
+    wh_supervisor: {
         '*':             [0,0,0,0,null],
         departments:     [1,0,0,0,null],
         warehouses:      [1,0,0,0,null],

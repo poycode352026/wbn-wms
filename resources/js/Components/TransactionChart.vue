@@ -14,16 +14,22 @@ Chart.register(
 
 const { t, locale, tm } = useI18n()
 
-const CHART_DATA = {
-    '7':  { inn:[18,24,31,22,28,23,14], out:[12,18,20,25,18,15,9]  },
-    '30': { inn:[142,168,155,188],       out:[110,134,142,156]      },
-    '90': { inn:[612,738,805],           out:[504,612,668]          },
-}
+const props = defineProps({
+    chartData: { type: Object, default: () => ({}) },
+})
 
 function getChartLabels(range) {
     if (range === '7')  return [...tm('chart.week')]
     if (range === '30') return [...tm('chart.week30')]
     return [...tm('chart.week90')]
+}
+
+function getRangeData(range) {
+    const d = props.chartData?.[range]
+    if (d) return { inn: d.gr, out: d.gi }
+    // fallback zeros
+    const len = range === '7' ? 7 : range === '30' ? 4 : 3
+    return { inn: Array(len).fill(0), out: Array(len).fill(0) }
 }
 
 const canvasRef  = ref(null)
@@ -54,7 +60,7 @@ function initChart() {
     }
     if (chart) { chart.destroy(); chart = null }
 
-    const d = CHART_DATA[activeRange.value]
+    const d = getRangeData(activeRange.value)
     const c = themeColors()
 
     chart = new Chart(canvasRef.value, {
@@ -146,7 +152,7 @@ function initChart() {
 function switchRange(r) {
     activeRange.value = r
     if (!chart) return
-    const d = CHART_DATA[r]
+    const d = getRangeData(r)
     chart.data.labels            = getChartLabels(r)
     chart.data.datasets[0].data  = [...d.inn]
     chart.data.datasets[1].data  = [...d.out]

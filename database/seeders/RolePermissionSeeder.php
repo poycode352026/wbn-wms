@@ -9,6 +9,38 @@ class RolePermissionSeeder extends Seeder
 {
     // [view, create, edit, delete, approve]   null = N/A
     private const DEFAULTS = [
+        'procurement_admin' => [
+            'users'           => [0, 0, 0, 0, null],
+            'departments'     => [0, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [1, 0, 0, 0, null],
+            'rackMgmt'        => [0, 0, 0, 0, null],
+            'locations'       => [1, 0, 0, 0, null],
+            'itemMaster'      => [1, 0, 0, 0, null],
+            'goodsReceipt'    => [1, 1, 1, 0, null],
+            'goodsIssue'      => [0, 0, 0, 0, null],
+            'inventoryReport' => [1, 0, 0, 0, null],
+            'transactionLog'  => [0, 0, 0, 0, null],
+            'auditTrail'      => [0, 0, 0, 0, null],
+            'vehicles'        => [0, 0, 0, 0, null],
+            'employees'       => [0, 0, 0, 0, null],
+        ],
+        'wh_admin' => [
+            'users'           => [0, 0, 0, 0, null],
+            'departments'     => [1, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [1, 0, 0, 0, null],
+            'rackMgmt'        => [1, 0, 0, 0, null],
+            'locations'       => [1, 0, 0, 0, null],
+            'itemMaster'      => [1, 0, 0, 0, null],
+            'goodsReceipt'    => [1, 0, 1, 0, null],
+            'goodsIssue'      => [1, 0, 1, 0, null],   // can_edit=1: assign, start-picking, submit-picking, pickup
+            'inventoryReport' => [1, 0, 0, 0, null],
+            'transactionLog'  => [1, 0, 0, 0, null],
+            'auditTrail'      => [0, 0, 0, 0, null],
+            'vehicles'        => [1, 1, 1, 1, null],
+            'employees'       => [1, 1, 1, 1, null],
+        ],
         'super_admin' => [
             'users'           => [1, 1, 1, 1, 1],
             'departments'     => [1, 1, 1, 1, 1],
@@ -22,6 +54,8 @@ class RolePermissionSeeder extends Seeder
             'inventoryReport' => [1, 1, 1, 1, 1],
             'transactionLog'  => [1, 1, 1, 1, 1],
             'auditTrail'      => [1, 1, 1, 1, 1],
+            'vehicles'        => [1, 1, 1, 1, 1],
+            'employees'       => [1, 1, 1, 1, 1],
         ],
         'admin_dept' => [
             'users'           => [0, 0, 0, 0, null],
@@ -36,6 +70,8 @@ class RolePermissionSeeder extends Seeder
             'inventoryReport' => [1, 0, 0, 0, null],
             'transactionLog'  => [1, 0, 0, 0, null],
             'auditTrail'      => [0, 0, 0, 0, null],
+            'vehicles'        => [0, 0, 0, 0, null],
+            'employees'       => [1, 1, 1, 1, null],
         ],
         'manager_dept' => [
             'users'           => [0, 0, 0, 0, null],
@@ -50,8 +86,10 @@ class RolePermissionSeeder extends Seeder
             'inventoryReport' => [1, 0, 0, 0, null],
             'transactionLog'  => [1, 0, 0, 0, null],
             'auditTrail'      => [0, 0, 0, 0, null],
+            'vehicles'        => [0, 0, 0, 0, null],
+            'employees'       => [0, 0, 0, 0, null],
         ],
-        'warehouse_manager' => [
+        'wh_manager' => [
             'users'           => [1, 0, 0, 0, null],
             'departments'     => [1, 0, 0, 0, null],
             'permissions'     => [0, 0, 0, 0, null],
@@ -64,8 +102,10 @@ class RolePermissionSeeder extends Seeder
             'inventoryReport' => [1, 0, 0, 0, null],
             'transactionLog'  => [1, 0, 0, 0, null],
             'auditTrail'      => [1, 0, 0, 0, null],
+            'vehicles'        => [1, 0, 0, 0, null],
+            'employees'       => [1, 0, 0, 0, null],
         ],
-        'supervisor' => [
+        'wh_supervisor' => [
             'users'           => [0, 0, 0, 0, null],
             'departments'     => [1, 0, 0, 0, null],
             'permissions'     => [0, 0, 0, 0, null],
@@ -78,6 +118,8 @@ class RolePermissionSeeder extends Seeder
             'inventoryReport' => [1, 0, 0, 0, null],
             'transactionLog'  => [1, 0, 0, 0, null],
             'auditTrail'      => [0, 0, 0, 0, null],
+            'vehicles'        => [1, 0, 0, 0, null],
+            'employees'       => [1, 0, 0, 0, null],
         ],
         'operator' => [
             'users'           => [0, 0, 0, 0, null],
@@ -92,6 +134,24 @@ class RolePermissionSeeder extends Seeder
             'inventoryReport' => [0, 0, 0, 0, null],
             'transactionLog'  => [0, 0, 0, 0, null],
             'auditTrail'      => [0, 0, 0, 0, null],
+            'vehicles'        => [0, 0, 0, 0, null],
+            'employees'       => [0, 0, 0, 0, null],
+        ],
+        'employee' => [
+            'users'           => [0, 0, 0, 0, null],
+            'departments'     => [0, 0, 0, 0, null],
+            'permissions'     => [0, 0, 0, 0, null],
+            'warehouses'      => [0, 0, 0, 0, null],
+            'rackMgmt'        => [0, 0, 0, 0, null],
+            'locations'       => [0, 0, 0, 0, null],
+            'itemMaster'      => [0, 0, 0, 0, null],
+            'goodsReceipt'    => [0, 0, 0, 0, null],
+            'goodsIssue'      => [0, 0, 0, 0, null],
+            'inventoryReport' => [0, 0, 0, 0, null],
+            'transactionLog'  => [0, 0, 0, 0, null],
+            'auditTrail'      => [0, 0, 0, 0, null],
+            'vehicles'        => [0, 0, 0, 0, null],
+            'employees'       => [0, 0, 0, 0, null],
         ],
     ];
 

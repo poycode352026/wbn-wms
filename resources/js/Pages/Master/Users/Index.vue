@@ -81,17 +81,17 @@ onUnmounted(() => {
 const isOpen = ref(false)
 const isEdit = ref(false)
 const editingId = ref(null)
-const form = useForm({ name: '', employee_id: '', email: '', password: '', role: 'operator', is_active: true })
+const form = useForm({ name: '', employee_id: '', email: '', password: '', role: 'user', extra_roles: [], is_active: true })
 
 function openAdd() {
     isEdit.value = false; editingId.value = null
-    form.reset(); form.role = 'operator'; form.is_active = true
+    form.reset(); form.role = 'user'; form.extra_roles = []; form.is_active = true
     isOpen.value = true; closeMenu()
 }
 function openEdit(user) {
     isEdit.value = true; editingId.value = user.id
     Object.assign(form, { name: user.name, employee_id: user.employee_id ?? '', email: user.email ?? '',
-        password: '', role: user.role, is_active: user.is_active })
+        password: '', role: user.role, extra_roles: user.extra_roles ?? [], is_active: user.is_active })
     form.clearErrors(); isOpen.value = true; closeMenu()
 }
 function closeModal() { isOpen.value = false; form.reset(); form.clearErrors() }
@@ -117,17 +117,26 @@ function impersonateUser(u) {
     router.post(route('users.impersonate', u.id))
 }
 
-const ROLES = ['super_admin','wh_admin','warehouse_manager','supervisor','operator','user']
+// Roles shown in create/edit dropdown (admin_dept/manager_dept set via Departments only)
+const ROLES = [
+    'super_admin',
+    'procurement_admin',
+    'wh_admin',
+    'wh_manager',
+    'wh_supervisor',
+    'operator',
+    'user',
+]
 const RC = {
-    super_admin:       { bg:'rgba(249,115,22,.15)',  color:'#fb923c', lbl:'SUPER ADMIN'  },
-    wh_admin:          { bg:'rgba(16,185,129,.15)',  color:'#34d399', lbl:'WH ADMIN'     },
-    wh_manager:        { bg:'rgba(249,115,22,.15)',  color:'#fb923c', lbl:'WH MANAGER'   },
-    warehouse_manager: { bg:'rgba(249,115,22,.15)',  color:'#fb923c', lbl:'WH MANAGER'   },
-    supervisor:        { bg:'rgba(234,179,8,.15)',   color:'#facc15', lbl:'WH SUPERVISOR'},
-    operator:          { bg:'rgba(100,116,139,.12)', color:'#94a3b8', lbl:'OPERATOR'     },
-    user:              { bg:'rgba(100,116,139,.10)', color:'#64748b', lbl:'USER'         },
-    admin_dept:        { bg:'rgba(59,130,246,.15)',  color:'#60a5fa', lbl:'DEPT ADMIN'   },
-    manager_dept:      { bg:'rgba(139,92,246,.15)',  color:'#a78bfa', lbl:'DEPT MANAGER' },
+    super_admin:        { bg:'rgba(249,115,22,.15)',  color:'#fb923c', lbl:'SUPER ADMIN'   },
+    procurement_admin:  { bg:'rgba(14,165,233,.15)',  color:'#38bdf8', lbl:'PROC ADMIN'    },
+    wh_admin:           { bg:'rgba(16,185,129,.15)',  color:'#34d399', lbl:'WH ADMIN'      },
+    admin_dept:         { bg:'rgba(59,130,246,.15)',  color:'#60a5fa', lbl:'DEPT ADMIN'    },
+    manager_dept:       { bg:'rgba(139,92,246,.15)',  color:'#a78bfa', lbl:'DEPT MANAGER'  },
+    wh_manager:         { bg:'rgba(249,115,22,.15)',  color:'#fb923c', lbl:'WH MANAGER'    },
+    wh_supervisor:      { bg:'rgba(234,179,8,.15)',   color:'#facc15', lbl:'WH SUPERVISOR' },
+    operator:           { bg:'rgba(100,116,139,.12)', color:'#94a3b8', lbl:'OPERATOR'      },
+    user:               { bg:'rgba(100,116,139,.10)', color:'#64748b', lbl:'USER'          },
 }
 const AC = [
     {bg:'rgba(59,130,246,.22)',  color:'#60a5fa'},
@@ -367,6 +376,19 @@ function ini(name) { const p=(name||'?').trim().split(' '); return p.length>=2?p
               </select>
               <p v-if="form.errors.role" class="fe">{{ form.errors.role }}</p>
             </div>
+            <!-- Extra roles (operator access) -->
+            <div class="fg full" v-if="form.role !== 'operator'">
+              <label class="fl">{{ $t('um.extraRoles') }}</label>
+              <div class="extra-roles-wrap">
+                <label class="extra-role-check">
+                  <input type="checkbox" value="operator"
+                    :checked="(form.extra_roles ?? []).includes('operator')"
+                    @change="e => { const r = form.extra_roles ?? []; e.target.checked ? form.extra_roles = [...r, 'operator'] : form.extra_roles = r.filter(x => x !== 'operator') }" />
+                  <span>📱 Operator Portal Access</span>
+                  <small>Can access mobile Scan & Pickup page</small>
+                </label>
+              </div>
+            </div>
             <!-- Active toggle -->
             <div class="fg half">
               <label class="fl">{{ $t('um.isActive') }}</label>
@@ -516,6 +538,12 @@ function ini(name) { const p=(name||'?').trim().split(' '); return p.length>=2?p
 @keyframes mOut{from{transform:none;opacity:1}to{transform:translateY(-10px) scale(.97);opacity:0}}
 
 @media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.extra-roles-wrap{display:flex;flex-direction:column;gap:6px}
+.extra-role-check{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color 150ms,background 150ms}
+.extra-role-check:hover{border-color:var(--orange-500);background:rgba(249,115,22,.05)}
+.extra-role-check input[type=checkbox]{width:15px;height:15px;accent-color:var(--orange-500);cursor:pointer;flex-shrink:0}
+.extra-role-check span{font-size:13px;font-weight:600;color:var(--fg);flex:1}
+.extra-role-check small{font-size:11px;color:var(--fg-2)}
 @media(max-width:640px){
   .stats-row{grid-template-columns:1fr 1fr}
   .tlb{gap:8px}.srch-w{flex:1 1 100%}

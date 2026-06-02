@@ -454,6 +454,23 @@ function submit() {
 .wms-login .field:focus-within .lead-icon{color:var(--orange-500);}
 .wms-login .field input{flex:1;border:0;background:transparent;outline:none;color:var(--fg);font:inherit;font-size:14px;padding:12px 4px;min-width:0;}
 .wms-login .field input::placeholder{color:var(--fg-dim);}
+/* ── autofill override — prevent browser white background ── */
+.wms-login .field input:-webkit-autofill,
+.wms-login .field input:-webkit-autofill:hover,
+.wms-login .field input:-webkit-autofill:focus {
+    -webkit-text-fill-color:var(--fg);
+    -webkit-box-shadow:0 0 0 1000px rgba(13,17,23,.75) inset;
+    transition:background-color 5000s ease-in-out 0s;
+    caret-color:var(--fg);
+}
+.wms-login[data-theme="light"] .field input:-webkit-autofill,
+.wms-login[data-theme="light"] .field input:-webkit-autofill:hover,
+.wms-login[data-theme="light"] .field input:-webkit-autofill:focus {
+    -webkit-text-fill-color:var(--fg);
+    -webkit-box-shadow:0 0 0 1000px rgba(255,255,255,.9) inset;
+    transition:background-color 5000s ease-in-out 0s;
+    caret-color:var(--fg);
+}
 .wms-login .eye-toggle{appearance:none;border:0;background:transparent;color:var(--fg-dim);cursor:pointer;padding:0 12px;height:44px;display:grid;place-items:center;}
 .wms-login .eye-toggle:hover{color:var(--fg);}
 .wms-login .row{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}

@@ -1,7 +1,7 @@
 # WBN-WMS — Database Schema
 
 > MySQL · Laravel 11 Migrations
-> Scope aktif: Gudang KM-17
+> Last updated: 2026-06-02
 
 ---
 
@@ -16,31 +16,37 @@
 7. item_categories
 8. items
 9. item_variants
-10. item_uoms
-11. stock_ledgers (stok per variant per lokasi)
-12. goods_issues
-13. goods_issue_items
-14. goods_issue_approvals
+10. stock_ledgers (stok per variant per lokasi)
+11. goods_issues
+12. goods_issue_items
+13. goods_issue_approvals
+14. goods_issue_photos
 15. goods_receipts
 16. goods_receipt_items
-17. notifications
-18. cooldown_logs
+17. goods_receipt_photos
+18. wms_notifications
+19. cooldown_logs
+20. employee_requests
+21. employee_request_items
 
 ---
 
 ## 1. users
 ```sql
 id              bigint PK
+employee_id     varchar(50) unique   -- login ID
 name            varchar(100)
-email           varchar(100) unique
+email           varchar(100) unique nullable
 password        varchar(255)
-role            enum('super_admin','admin_dept','manager_dept','warehouse_manager','supervisor','operator')
-department_id   bigint FK → departments.id (nullable, tidak perlu untuk super_admin)
-warehouse_id    bigint FK → warehouses.id (nullable)
+role            enum('super_admin','wh_admin','wh_manager','wh_supervisor',
+                     'admin_dept','manager_dept','operator','employee','user')
+extra_roles     json nullable        -- additional portal access e.g. ["operator"]
+department_id   bigint FK → departments.id nullable
 is_active       boolean default true
 last_login_at   timestamp nullable
 timestamps
 ```
+> `extra_roles`: WH Admin yang juga bisa akses operator portal diisi `["operator"]`
 
 ---
 
@@ -59,9 +65,10 @@ timestamps
 ## 3. warehouses
 ```sql
 id              bigint PK
-code            varchar(20) unique   -- KM-17, KM-28
+code            varchar(20) unique   -- GNR, IT, KM17
 name            varchar(100)
 location        varchar(255)
+sort_order      smallint default 99  -- proximity priority: GNR=1, IT=2, KM17=3
 is_active       boolean default true
 timestamps
 ```
@@ -203,6 +210,7 @@ timestamps
 ```sql
 id                  bigint PK
 goods_issue_id      bigint FK → goods_issues.id
+item_warehouse_id   bigint FK → warehouses.id nullable  -- per-item warehouse override
 item_variant_id     bigint FK → item_variants.id
 requested_qty       decimal(10,2)
 requested_uom       varchar(50)           -- base atau alt uom
@@ -211,11 +219,14 @@ actual_qty          decimal(10,2) nullable -- qty aktual disiapkan operator
 uom_used            varchar(50)
 lv_id               bigint FK → vehicles.id nullable
 employee_id         bigint FK → employees.id nullable
+store_to            varchar(255) nullable  -- nama penerima / lokasi pemakaian
+item_reason         text nullable          -- alasan khusus item cooldown
 cooldown_until      date nullable          -- dihitung saat completed
 notes               text nullable
 status              enum('pending','picking','ready','rejected')
 timestamps
 ```
+> `item_warehouse_id`: override gudang header — 1 GI bisa sourcing dari banyak gudang
 
 ---
 
@@ -338,13 +349,52 @@ notifications (→ users)
 
 ---
 
+## Tabel Tambahan (v1.1+)
+
+### goods_issue_photos
+```sql
+id, goods_issue_id FK, path, original_name, stage enum('request','pickup'), uploaded_by FK users, timestamps
+```
+
+### goods_receipt_photos
+```sql
+id, goods_receipt_id FK, path, original_name, uploaded_by FK users, timestamps
+```
+
+### wms_notifications
+```sql
+id, user_id FK, type varchar, title varchar, message text, data json,
+is_read boolean default false, read_at timestamp nullable, timestamps
+```
+
+### employee_requests
+```sql
+id, employee_id FK employees, status enum('pending','processed','rejected'),
+notes text nullable, processed_by FK users nullable, processed_at timestamp nullable, timestamps
+```
+
+### employee_request_items
+```sql
+id, employee_request_id FK, item_id FK items, lv_id FK vehicles nullable,
+employee_id FK employees nullable, status enum('pending','approved','rejected'), timestamps
+```
+
+### cooldown_logs
+```sql
+id, item_id FK, item_variant_id FK, track_type enum('lv_number','employee_id'),
+lv_id FK nullable, employee_id FK nullable, goods_issue_id FK, taken_at date, cooldown_until date, timestamps
+```
+
+---
+
 ## Catatan Implementasi
 
 - Semua tabel menggunakan `bigint` auto increment PK
 - Soft delete (`deleted_at`) untuk: items, item_variants, users, departments
-- `gi_number` & `gr_number` auto generate: `GI-YYYY-XXXX` format
-- `qty_available` di stock_ledgers = `qty_on_hand - qty_reserved` (computed / generated column)
-- Saat GI submitted → `qty_reserved` bertambah
+- `gi_number` auto generate: `GI-YYYY-XXXX`, `gr_number`: `GR-YYYY-XXXX`
+- `qty_available` di stock_ledgers = `qty_on_hand - qty_reserved`
+- Saat GI submitted → `qty_reserved` bertambah per item per gudang
 - Saat GI completed → `qty_on_hand` berkurang, `qty_reserved` berkurang
-- Saat GR completed (approved SPV) → `qty_on_hand` bertambah sesuai lokasi
-- Index wajib pada: `status`, `department_id`, `warehouse_id`, `user_id` di tabel transaksi
+- Saat GR completed → `qty_on_hand` bertambah sesuai lokasi
+- Per-item warehouse: `goods_issue_items.item_warehouse_id` override `goods_issues.warehouse_id`
+- Multi-role: `users.extra_roles` JSON untuk akses portal tambahan

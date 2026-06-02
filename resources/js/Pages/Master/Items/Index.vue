@@ -76,6 +76,7 @@ const form = useForm({
     alt_uom_conversion: '',
     minimum_stock:      0,
     has_cooldown:       false,
+    is_mandatory:       false,
     cooldown_days:      '',
     cooldown_track_by:  'employee_id',
     photo_required:     false,
@@ -101,6 +102,7 @@ function openAdd() {
     form.is_active         = true
     form.minimum_stock     = 0
     form.has_cooldown      = false
+    form.is_mandatory      = false
     form.photo_required    = false
     form.cooldown_track_by = 'employee_id'
     nameTab.value          = 'en'
@@ -123,6 +125,7 @@ function openEdit(item) {
     form.alt_uom_conversion = item.alt_uom_conversion != null ? parseFloat(item.alt_uom_conversion) : ''
     form.minimum_stock      = parseFloat(item.minimum_stock)
     form.has_cooldown       = item.has_cooldown
+    form.is_mandatory       = item.is_mandatory ?? false
     form.cooldown_days      = item.cooldown_days ?? ''
     form.cooldown_track_by  = item.cooldown_track_by ?? 'employee_id'
     form.photo_required     = item.photo_required
@@ -456,6 +459,10 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
                   {{ $t('im.cooldownYes', { n: item.cooldown_days }) }}
                 </span>
                 <span v-else style="opacity:.3;font-size:12px">{{ $t('im.cooldownNo') }}</span>
+                <span v-if="item.is_mandatory"
+                  style="margin-left:4px;background:rgba(239,68,68,.12);color:#ef4444;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">
+                  {{ $t('im.mandatory') }}
+                </span>
               </td>
               <td>
                 <span :style="{
@@ -709,6 +716,14 @@ function badgeColor(id) { return BADGE_COLORS[((id ?? 1) - 1) % BADGE_COLORS.len
                   <option value="employee_id">{{ $t('im.employeeId') }}</option>
                 </select>
               </div>
+            </div>
+            <!-- Mandatory Distribution toggle -->
+            <div style="margin-top:10px">
+              <label class="toggle-row">
+                <input type="checkbox" v-model="form.is_mandatory" style="display:none" />
+                <div class="toggle-track" :class="{ on: form.is_mandatory }"><div class="toggle-thumb"></div></div>
+                <span class="form-label" style="margin:0">{{ $t('im.isMandatory') }}</span>
+              </label>
             </div>
           </div>
 

@@ -12,19 +12,30 @@ return new class extends Migration
             $table->id();
             $table->string('gi_number', 50)->unique();
             $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('department_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('department_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('requested_by')->constrained('users');
-            $table->text('purpose');
-            $table->string('usage_location', 255);
+            $table->string('project', 255)->nullable();          // nama project
+            $table->text('purpose');                              // alasan penggunaan / business reason
+            $table->string('usage_location', 255);               // area pemakaian
+            $table->text('notes')->nullable();
             $table->enum('status', [
-                'draft', 'pending_manager_dept', 'pending_manager_wh',
-                'pending_supervisor', 'assigned', 'in_picking',
-                'ready_to_pickup', 'completed', 'rejected',
+                'draft',
+                'pending_manager_dept',
+                'pending_supervisor',    // WH Supervisor (approval order: supervisor BEFORE warehouse_manager)
+                'pending_manager_wh',
+                'approved',             // semua approve, menunggu assign operator
+                'assigned',
+                'in_picking',
+                'ready_to_pickup',
+                'completed',
+                'rejected',
             ])->default('draft');
             $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('picked_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->text('rejection_reason')->nullable();
             $table->timestamp('submitted_at')->nullable();
+            $table->timestamp('picked_at')->nullable();
             $table->timestamp('completed_at')->nullable();
-            $table->text('notes')->nullable();
             $table->timestamps();
             $table->index('status');
             $table->index('department_id');

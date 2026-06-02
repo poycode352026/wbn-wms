@@ -167,19 +167,17 @@ class StockInputController extends Controller
         $location    = Location::findOrFail($data['location_id']);
         $warehouseId = $location->warehouse_id;
 
-        StockLedger::updateOrCreate(
-            [
-                'item_variant_id' => $variant->id,
-                'location_id'     => $data['location_id'],
-            ],
-            [
-                'warehouse_id'    => $warehouseId,
-                'qty_on_hand'     => $data['qty_on_hand'],
-                'last_updated_at' => now(),
-            ]
-        );
+        $ledger = StockLedger::firstOrNew([
+            'item_variant_id' => $variant->id,
+            'location_id'     => $data['location_id'],
+        ]);
 
-        return back()->with('success', 'Stock updated successfully.');
+        $ledger->warehouse_id    = $warehouseId;
+        $ledger->qty_on_hand     = ($ledger->qty_on_hand ?? 0) + $data['qty_on_hand'];
+        $ledger->last_updated_at = now();
+        $ledger->save();
+
+        return back()->with('success', 'Stock added successfully.');
     }
 
     /**
@@ -199,21 +197,19 @@ class StockInputController extends Controller
         $count       = 0;
 
         foreach ($data['entries'] as $entry) {
-            StockLedger::updateOrCreate(
-                [
-                    'item_variant_id' => $entry['variant_id'],
-                    'location_id'     => $data['location_id'],
-                ],
-                [
-                    'warehouse_id'    => $warehouseId,
-                    'qty_on_hand'     => $entry['qty_on_hand'],
-                    'last_updated_at' => now(),
-                ]
-            );
+            $ledger = StockLedger::firstOrNew([
+                'item_variant_id' => $entry['variant_id'],
+                'location_id'     => $data['location_id'],
+            ]);
+
+            $ledger->warehouse_id    = $warehouseId;
+            $ledger->qty_on_hand     = ($ledger->qty_on_hand ?? 0) + $entry['qty_on_hand'];
+            $ledger->last_updated_at = now();
+            $ledger->save();
             $count++;
         }
 
-        return back()->with('success', "{$count} stock entries updated successfully.");
+        return back()->with('success', "{$count} stock entries added successfully.");
     }
 
     public function destroy(StockLedger $stockLedger): RedirectResponse

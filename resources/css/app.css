@@ -1,5 +1,39 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Global CSS variables (dark default, light override) ─────────────── */
+/* These are duplicated from AppLayout.vue to ensure they load globally   */
+/* for ALL pages including the Employee Portal which uses EmployeeLayout.  */
+:root {
+  --orange-500:#f97316; --orange-400:#fb923c;
+  --amber-500:#f59e0b;  --amber-400:#fbbf24;
+  /* Dark theme (default) */
+  --bg:#0a0f1a; --surface:#0d1117; --surface-2:#111827; --surface-3:#1e2535;
+  --border:#1e2535; --border-2:#2a3550; --border-soft:#1a2236;
+  --fg:#e6edf7; --fg-2:#94a3b8; --fg-dim:#64748b;
+  --hover:rgba(59,130,246,.08); --active-bg:rgba(249,115,22,.1);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 6px 18px -8px rgba(0,0,0,.6);
+  --shadow-lg:0 18px 40px -16px rgba(0,0,0,.6);
+  --logo-bg:#ffffff;
+}
+:root[data-theme="light"] {
+  --bg:#f9fafb; --surface:#ffffff; --surface-2:#f9fafb; --surface-3:#ffffff;
+  --border:#e5e7eb; --border-2:#d1d5db; --border-soft:#f1f5f9;
+  --fg:#0b1530; --fg-2:#475569; --fg-dim:#94a3b8;
+  --hover:rgba(59,130,246,.06); --active-bg:rgba(249,115,22,.08);
+  --shadow-sm:0 1px 2px rgba(15,23,42,.06);
+  --shadow-md:0 6px 18px -8px rgba(15,23,42,.12);
+  --shadow-lg:0 18px 40px -16px rgba(15,23,42,.18);
+  --logo-bg:#f3f4f6;
+}
+
+/* Apply background/color globally so Employee Portal pages also respond to theme */
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  transition: background 250ms ease, color 250ms ease;
+}

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Employee;
 
 class Department extends Model
 {
@@ -25,5 +26,10 @@ class Department extends Model
     public function admins(): HasMany
     {
         return $this->hasMany(User::class)->whereIn('role', ['admin_dept', 'manager_dept']);
+    }
+
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
     }
 }

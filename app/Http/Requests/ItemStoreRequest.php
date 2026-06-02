@@ -26,6 +26,7 @@ class ItemStoreRequest extends FormRequest
             'alt_uom_conversion' => ['nullable', 'numeric', 'min:0'],
             'minimum_stock'      => ['required', 'numeric', 'min:0'],
             'has_cooldown'       => ['boolean'],
+            'is_mandatory'       => ['boolean'],
             'photo_required'     => ['boolean'],
             'cooldown_days'      => ['nullable', 'integer', 'min:1'],
             'cooldown_track_by'  => ['nullable', Rule::in(['lv_number', 'employee_id'])],

@@ -275,7 +275,7 @@ function ini(name) { const p=(name||'?').trim().split(' '); return p.length>=2?p
                 <span v-else class="no-adm">—</span>
               </td>
               <td class="td-num">
-                <span class="user-count">{{ d.users_count }}</span>
+                <span class="user-count">{{ d.admins.length }}</span>
               </td>
               <td>
                 <span class="sb" :class="d.is_active ? 'sb-on' : 'sb-off'">

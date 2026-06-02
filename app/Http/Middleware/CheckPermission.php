@@ -42,11 +42,11 @@ class CheckPermission
         }
 
         $allowed = match (strtoupper($request->method())) {
-            'GET', 'HEAD' => (bool) $perm->can_view,
-            'POST'        => (bool) ($perm->can_create || $perm->can_edit),
+            'GET', 'HEAD'  => (bool) $perm->can_view,
+            'POST'         => (bool) ($perm->can_create || $perm->can_edit || $perm->can_approve),
             'PUT', 'PATCH' => (bool) $perm->can_edit,
-            'DELETE'      => (bool) $perm->can_delete,
-            default       => (bool) $perm->can_view,
+            'DELETE'       => (bool) $perm->can_delete,
+            default        => (bool) $perm->can_view,
         };
 
         return $allowed ? $next($request) : $this->deny($request);

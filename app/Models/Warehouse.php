@@ -8,7 +8,7 @@ use App\Models\Location;
 
 class Warehouse extends Model
 {
-    protected $fillable = ['code', 'name', 'location', 'is_active'];
+    protected $fillable = ['code', 'name', 'location', 'is_active', 'sort_order'];
 
     protected $casts = ['is_active' => 'boolean'];
 

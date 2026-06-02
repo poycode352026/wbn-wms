@@ -43,6 +43,7 @@ class UserController extends Controller
                 'employee_id'   => $u->employee_id,
                 'email'         => $u->email,
                 'role'          => $u->role,
+                'extra_roles'   => $u->extra_roles ?? [],
                 'department_id' => $u->department_id,
                 'is_active'     => $u->is_active,
                 'last_login_at' => $u->last_login_at?->diffForHumans(),

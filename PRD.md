@@ -7,17 +7,20 @@
 
 ## 1. Roles & Akses
 
-| Role | Kode | Akses Utama |
-|---|---|---|
-| Super Admin | `super_admin` | Full sistem, master data, stok awal, user management |
-| Admin Dept | `admin_dept` | Buat request GI untuk departmentnya, lihat stok real-time |
-| Manager Dept | `manager_dept` | Approve/Reject GI tahap 1 |
-| Warehouse Manager | `warehouse_manager` | Approve/Reject GI tahap 2, notif GR, lihat stok & laporan |
-| Supervisor | `supervisor` | Approve/Reject GI tahap 3, assign operator, approve GR |
-| Operator | `operator` | Eksekusi job picking & GR — hanya job miliknya |
+| Role | Kode | Portal | Akses Utama |
+|---|---|---|---|
+| Super Admin | `super_admin` | Web | Full sistem, master data, stok awal, user management |
+| WH Admin | `wh_admin` | Web + Operator* | Approve GI, assign operator, akses picking |
+| WH Manager | `wh_manager` | Web | Approve/Reject GI tahap 2, notif GR |
+| WH Supervisor | `wh_supervisor` | Web | Approve/Reject GI tahap 3, assign operator, approve GR |
+| Admin Dept | `admin_dept` | Web | Buat request GI untuk departmentnya |
+| Manager Dept | `manager_dept` | Web | Approve/Reject GI tahap 1 |
+| Operator | `operator` | **Mobile** | Scan barcode, picking, serahkan barang |
+| Employee | `employee` | **Mobile** | Lihat mandatory item, request replacement |
 
-> - Setiap Reject **wajib isi alasan**
-> - History approve/reject tercatat beserta timestamp & nama approver
+> **Multi-role**: 1 user bisa punya `extra_roles` JSON tambahan.  
+> Contoh: WH Admin dengan `extra_roles: ["operator"]` bisa akses halaman operator mobile.  
+> Setiap Reject **wajib isi alasan** — history tercatat lengkap.
 
 ---
 
@@ -35,7 +38,7 @@
 ### 2.3 User Management
 - Tambah / edit / nonaktifkan user
 - Assign role & department
-- 1 user bisa 1 role saja
+- `extra_roles`: assign akses tambahan (contoh: WH Admin juga bisa akses Operator Portal)
 
 ### 2.4 Lokasi / Rak
 - Kode rak, nama rak, gudang
