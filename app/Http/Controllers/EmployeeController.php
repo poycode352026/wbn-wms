@@ -63,6 +63,15 @@ class EmployeeController extends Controller
         $employees   = $query->orderBy('name')->paginate(25)->withQueryString();
         $departments = Department::orderBy('name')->get(['id', 'name', 'code']);
 
+        // Add nearestCooldown = soonest active cooldown_until per employee
+        $employees->through(function ($e) use ($today) {
+            $e->nearestCooldown = CooldownLog::where('employee_id', $e->id)
+                ->where('cooldown_until', '>=', $today)
+                ->orderBy('cooldown_until')
+                ->value('cooldown_until');
+            return $e;
+        });
+
         // Overdue mandatory PPE per employee
         $overdueEmpIds = $this->getOverdueEmployeeIds();
 
@@ -80,8 +89,9 @@ class EmployeeController extends Controller
             ])
             ->toArray();
 
-        // Pending employee requests (admin_dept sees own dept, wh_admin/super_admin see all)
+        // Pending employee requests — exclude those already linked to a GI
         $requestsQuery = EmployeeRequest::where('status', 'pending')
+            ->whereNull('goods_issue_id')
             ->with(['employee:id,employee_id,name', 'items.item:id,name_en,name_id'])
             ->orderByDesc('created_at');
         if (in_array($role, ['admin_dept', 'manager_dept'])) {

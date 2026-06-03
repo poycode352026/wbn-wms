@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EmployeeRequest extends Model
 {
-    protected $fillable = ['employee_id', 'department_id', 'notes', 'status'];
+    protected $fillable = ['employee_id', 'department_id', 'notes', 'status', 'goods_issue_id'];
 
     public function employee(): BelongsTo
     {
@@ -23,5 +23,10 @@ class EmployeeRequest extends Model
     public function items(): HasMany
     {
         return $this->hasMany(EmployeeRequestItem::class);
+    }
+
+    public function goodsIssue(): BelongsTo
+    {
+        return $this->belongsTo(GoodsIssue::class);
     }
 }

@@ -39,8 +39,10 @@ function logout() { router.post(route('logout')) }
 
 // ── active tab ─────────────────────────────────────────────────────────────
 function isActive(path) {
-    if (path === '/operator/scan') return window.location.pathname === '/operator/scan'
-    return window.location.pathname.startsWith(path)
+    const p = window.location.pathname
+    if (path === '/operator/scan') return p === '/operator/scan' || p.startsWith('/operator/scan/')
+    if (path === '/operator/history') return p === '/operator/history'
+    return p.startsWith(path)
 }
 </script>
 
@@ -65,19 +67,6 @@ function isActive(path) {
         <!-- User + utils -->
         <div class="op-header-right">
           <div class="op-avatar">{{ initials }}</div>
-
-          <!-- Theme -->
-          <button class="util-btn" @click.stop="toggleTheme" type="button">
-            <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" width="15" height="15" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="5"/>
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" width="15" height="15" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          </button>
 
           <!-- Lang -->
           <div style="position:relative">
@@ -125,10 +114,10 @@ function isActive(path) {
           <path d="M9 11l3 3L22 4"/>
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
         </svg>
-        <span>My Jobs</span>
+        <span>{{ $t('operator.navJobs') }}</span>
       </a>
 
-      <!-- Scan / active picking -->
+      <!-- Scan / active picking (center floating) -->
       <a :href="route('operator.scan-list')"
          class="op-nav-tab op-scan-tab"
          :class="{ active: isActive('/operator/scan/') }">
@@ -142,7 +131,19 @@ function isActive(path) {
             <rect x="7" y="7" width="10" height="10" rx="1"/>
           </svg>
         </div>
-        <span>Scan</span>
+        <span>{{ $t('operator.navScan') }}</span>
+      </a>
+
+      <!-- History -->
+      <a :href="route('operator.history')"
+         class="op-nav-tab"
+         :class="{ active: isActive('/operator/history') }">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          width="22" height="22" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span>{{ $t('operator.navHistory') }}</span>
       </a>
     </nav>
 

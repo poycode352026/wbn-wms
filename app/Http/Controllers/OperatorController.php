@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\CooldownLog;
+use App\Models\EmployeeRequest;
 use App\Models\GoodsIssue;
+use App\Models\GoodsIssueItem;
 use App\Models\GoodsIssuePhoto;
 use App\Models\StockLedger;
 use App\Services\NotificationService;
@@ -60,7 +62,7 @@ class OperatorController extends Controller
             'department:id,name,code',
             'requestedBy:id,name',
             'items.variant:id,sku,item_id',
-            'items.variant.item:id,name_en,name_id,name_zh',
+            'items.variant.item:id,name_en,name_id,name_zh,base_uom',
             'items.itemWarehouse:id,code,name',
             'items.lv:id,lv_number',
             'items.employee:id,employee_id,name',
@@ -83,11 +85,14 @@ class OperatorController extends Controller
             if (!isset($locationMap[$vid])) $locationMap[$vid] = [];
             foreach ($ledgers as $ledger) {
                 $locationMap[$vid][] = [
-                    'location_code' => $ledger->location?->code,
-                    'location_name' => $ledger->location?->name,
-                    'qty_on_hand'   => (float) $ledger->qty_on_hand,
-                    'qty_reserved'  => (float) $ledger->qty_reserved,
-                    'available'     => max(0, (float) $ledger->qty_on_hand - (float) $ledger->qty_reserved),
+                    'warehouse_id'   => $whId,
+                    'warehouse_code' => $gItem->itemWarehouse?->code ?? $goodsIssue->warehouse?->code ?? '—',
+                    'warehouse_name' => $gItem->itemWarehouse?->name ?? $goodsIssue->warehouse?->name ?? '—',
+                    'location_code'  => $ledger->location?->code,
+                    'location_name'  => $ledger->location?->name,
+                    'qty_on_hand'    => (float) $ledger->qty_on_hand,
+                    'qty_reserved'   => (float) $ledger->qty_reserved,
+                    'available'      => max(0, (float) $ledger->qty_on_hand - (float) $ledger->qty_reserved),
                 ];
             }
         }
@@ -125,7 +130,7 @@ class OperatorController extends Controller
             ->with('success', 'Picking dimulai! Siapkan semua barang.');
     }
 
-    // ── Submit Pickup: in_picking + photos → ready_to_pickup ──────────────────
+    // ── Submit Pickup: in_picking + actual qty per item → ready_to_pickup ──────
 
     public function submitPickup(Request $request, GoodsIssue $goodsIssue): RedirectResponse
     {
@@ -142,29 +147,31 @@ class OperatorController extends Controller
         }
 
         $request->validate([
-            'photos'   => ['required', 'array', 'min:1'],
-            'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp,heic,heif', 'max:8192'],
+            'items'              => ['required', 'array', 'min:1'],
+            'items.*.id'         => ['required', 'exists:goods_issue_items,id'],
+            'items.*.actual_qty' => ['required', 'numeric', 'min:0'],
+            'items.*.status'     => ['nullable', 'in:ready,rejected'],
+            'items.*.notes'      => ['nullable', 'string', 'max:500'],
         ]);
 
-        DB::transaction(function () use ($request, $goodsIssue, $user) {
-            // Mark all items as ready with actual qty = requested qty
-            foreach ($goodsIssue->items as $item) {
-                $item->update([
-                    'status'     => 'ready',
-                    'actual_qty' => $item->qty_in_base_uom,
-                ]);
+        // Rejected items MUST have a reason
+        foreach ($request->input('items', []) as $itemData) {
+            if (($itemData['status'] ?? 'ready') === 'rejected' && empty(trim($itemData['notes'] ?? ''))) {
+                return back()->with('error', 'Alasan penolakan wajib diisi untuk setiap item yang ditolak.');
             }
+        }
 
-            // Upload proof photos (stage = 'picking')
-            foreach ($request->file('photos') as $file) {
-                $path = $file->store('gi-photos', 'public');
-                GoodsIssuePhoto::create([
-                    'goods_issue_id' => $goodsIssue->id,
-                    'path'           => $path,
-                    'original_name'  => $file->getClientOriginalName(),
-                    'stage'          => 'picking',
-                    'uploaded_by'    => $user->id,
-                ]);
+        DB::transaction(function () use ($request, $goodsIssue) {
+            foreach ($request->input('items') as $itemData) {
+                // Operator can explicitly set status; fallback: qty>0 → ready, else → rejected
+                $status = $itemData['status'] ?? ($itemData['actual_qty'] > 0 ? 'ready' : 'rejected');
+                GoodsIssueItem::where('id', $itemData['id'])
+                    ->where('goods_issue_id', $goodsIssue->id)
+                    ->update([
+                        'actual_qty' => $itemData['actual_qty'],
+                        'status'     => $status,
+                        'notes'      => $itemData['notes'] ?? null,
+                    ]);
             }
 
             $goodsIssue->update(['status' => 'ready_to_pickup']);
@@ -188,19 +195,42 @@ class OperatorController extends Controller
             ->with('success', 'Barang siap! Informasikan ke requester untuk datang ambil.');
     }
 
-    // ── Confirm Pickup: ready_to_pickup → completed (stock deduction) ──────────
+    // ── Confirm Pickup: ready_to_pickup + photo evidence → completed ───────────
 
     public function confirmPickup(Request $request, GoodsIssue $goodsIssue): RedirectResponse
     {
         $this->authorizeOp($request);
 
+        $user = $request->user();
+
+        if ($goodsIssue->assigned_to !== $user->id && $goodsIssue->picked_by !== $user->id) {
+            abort(403);
+        }
+
         if ($goodsIssue->status !== 'ready_to_pickup') {
             return back()->with('error', 'GI belum dalam status ready_to_pickup.');
         }
 
+        $request->validate([
+            'photos'   => ['required', 'array', 'min:1'],
+            'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp,heic,heif', 'max:8192'],
+        ]);
+
         $goodsIssue->load(['items.variant.item']);
 
-        DB::transaction(function () use ($goodsIssue) {
+        DB::transaction(function () use ($request, $goodsIssue, $user) {
+            // Upload evidence photos (stage = 'pickup')
+            foreach ($request->file('photos') as $file) {
+                $path = $file->store('gi-photos', 'public');
+                GoodsIssuePhoto::create([
+                    'goods_issue_id' => $goodsIssue->id,
+                    'path'           => $path,
+                    'original_name'  => $file->getClientOriginalName(),
+                    'stage'          => 'pickup',
+                    'uploaded_by'    => $user->id,
+                ]);
+            }
+
             foreach ($goodsIssue->items()->where('status', 'ready')->get() as $gItem) {
                 $qty  = (float) ($gItem->actual_qty ?? $gItem->qty_in_base_uom);
                 $whId = $gItem->item_warehouse_id ?? $goodsIssue->warehouse_id;
@@ -245,6 +275,10 @@ class OperatorController extends Controller
                 'status'       => 'completed',
                 'completed_at' => now(),
             ]);
+
+            // Auto-process linked employee requests
+            EmployeeRequest::where('goods_issue_id', $goodsIssue->id)
+                ->update(['status' => 'processed']);
         });
 
         // Notify requester
@@ -263,6 +297,25 @@ class OperatorController extends Controller
         return redirect()
             ->route('operator.scan-list')
             ->with('success', "GI {$goodsIssue->gi_number} selesai — barang diserahkan!");
+    }
+
+    // ── History: completed/rejected GIs handled by this operator ──────────────
+
+    public function history(Request $request): Response
+    {
+        $this->authorizeOp($request);
+
+        $user = $request->user();
+
+        $gis = GoodsIssue::query()
+            ->with(['department:id,name,code', 'warehouse:id,code,name'])
+            ->withCount('items')
+            ->where(fn ($q) => $q->where('assigned_to', $user->id)->orWhere('picked_by', $user->id))
+            ->whereIn('status', ['completed', 'rejected', 'ready_to_pickup'])
+            ->latest('updated_at')
+            ->paginate(20);
+
+        return Inertia::render('Operator/History', ['gis' => $gis]);
     }
 
     // ── Private helpers ────────────────────────────────────────────────────────

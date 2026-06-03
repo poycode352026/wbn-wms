@@ -390,9 +390,7 @@ const currentEmpHasLogin = computed(() => {
               {{ new Date(req.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }) }}
             </td>
             <td>
-              <button class="btn-mark-done" @click="processRequest(req.id)" type="button">
-                ✓ {{ $t('emp.markProcessed') }}
-              </button>
+              <span class="cell-sub" style="font-size:11px;color:var(--fg-2)">—</span>
             </td>
           </tr>
         </tbody>
@@ -471,12 +469,12 @@ const currentEmpHasLogin = computed(() => {
               <span v-else class="cell-sub">{{ $t('emp.neverTaken') }}</span>
             </td>
             <td>
-              <template v-if="cooldownStatus(emp)">
-                <span :class="cooldownStatus(emp).locked ? 'chip-locked' : 'chip-ok'">
-                  {{ cooldownStatus(emp).label }}
+              <template v-if="emp.nearestCooldown">
+                <span class="chip-locked" :title="'Cooldown aktif s/d ' + new Date(emp.nearestCooldown).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' })">
+                  🔒 s/d {{ new Date(emp.nearestCooldown).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }) }}
                 </span>
               </template>
-              <span v-else class="cell-sub">—</span>
+              <span v-else class="chip-ok">✅ OK</span>
             </td>
             <td>
               <div v-if="emp.user_id && emp.user">

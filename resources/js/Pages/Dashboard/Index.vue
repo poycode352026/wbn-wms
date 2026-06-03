@@ -17,6 +17,7 @@ const props = defineProps({
     recentTx:         Array,
     lowStockItems:    Array,
     mandatoryOverdue: Object,  // null if role has no access
+    adminDeptStats:   Object,  // only for admin_dept role
 })
 
 // Mandatory overdue widget helpers
@@ -134,8 +135,46 @@ function doReorder() {
       <div class="dt">{{ dateStr }}</div>
     </div>
 
-    <!-- Row 1: stat cards -->
-    <section class="dash-row cards4">
+    <!-- Row 1 (admin_dept): custom stat cards -->
+    <section v-if="role === 'admin_dept' && props.adminDeptStats" class="dash-row cards5-wrap">
+      <!-- pending requests chip -->
+      <Link v-if="props.adminDeptStats.pendingRequests > 0"
+        :href="route('employees.index')"
+        class="dept-req-chip">
+        📩 {{ props.adminDeptStats.pendingRequests }} permintaan employee menunggu tindakan
+      </Link>
+
+      <div class="dash-row cards5">
+        <div class="stat b-blue">
+          <div class="stat-num">{{ props.adminDeptStats.total }}</div>
+          <div class="stat-lbl">Total GI</div>
+          <div class="stat-sub">Semua GI departemen</div>
+        </div>
+        <div class="stat b-green">
+          <div class="stat-num">{{ props.adminDeptStats.completed }}</div>
+          <div class="stat-lbl">Selesai</div>
+          <div class="stat-sub">GI telah diselesaikan</div>
+        </div>
+        <div class="stat b-orange">
+          <div class="stat-num">{{ props.adminDeptStats.inProgress }}</div>
+          <div class="stat-lbl">Dalam Proses</div>
+          <div class="stat-sub">Sedang berjalan</div>
+        </div>
+        <div class="stat b-amber">
+          <div class="stat-num">{{ props.adminDeptStats.draft }}</div>
+          <div class="stat-lbl">Draft</div>
+          <div class="stat-sub">Belum disubmit</div>
+        </div>
+        <div class="stat b-red">
+          <div class="stat-num">{{ props.adminDeptStats.rejected }}</div>
+          <div class="stat-lbl">Ditolak</div>
+          <div class="stat-sub">GI yang ditolak</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 1: stat cards (non admin_dept) -->
+    <section v-else class="dash-row cards4">
       <div class="stat b-orange">
         <div class="stat-top">
           <div class="stat-ico orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8L12 13 3 8l9-5 9 5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
@@ -355,8 +394,13 @@ function doReorder() {
 .stat:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
 .stat.b-orange{border-left-color:#f97316}
 .stat.b-blue{border-left-color:#3b82f6}
+.stat.b-green{border-left-color:#10b981}
 .stat.b-amber{border-left-color:#f59e0b}
 .stat.b-red{border-left-color:#ef4444;box-shadow:var(--shadow-sm),0 0 0 1px rgba(239,68,68,.15),0 12px 30px -12px rgba(239,68,68,.25)}
+.cards5-wrap{display:flex;flex-direction:column;gap:12px}
+.cards5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.dept-req-chip{display:inline-flex;align-items:center;gap:8px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);color:#f97316;font-size:13px;font-weight:600;padding:8px 16px;border-radius:10px;text-decoration:none;transition:background 200ms ease;align-self:flex-start}
+.dept-req-chip:hover{background:rgba(249,115,22,.18)}
 .stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
 .stat-ico{width:42px;height:42px;border-radius:10px;display:grid;place-items:center}
 .stat-ico svg{width:20px;height:20px}
@@ -445,11 +489,11 @@ function doReorder() {
 .mandatory-dept{color:var(--fg-2)}
 .mono{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg-2)}
 @media(max-width:1100px){
-  .cards4{grid-template-columns:repeat(2,1fr)}
+  .cards4,.cards5{grid-template-columns:repeat(2,1fr)}
   .split-60-40,.split-50{grid-template-columns:1fr}
 }
 @media(max-width:760px){
-  .cards4{grid-template-columns:1fr 1fr}
+  .cards4,.cards5{grid-template-columns:1fr 1fr}
   .page-head{flex-direction:column;align-items:flex-start}
 }
 </style>

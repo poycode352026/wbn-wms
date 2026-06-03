@@ -236,7 +236,7 @@ function removeRow(idx) { if (rows.value.length > 1) rows.value.splice(idx, 1) }
 // ── SOH ────────────────────────────────────────────────────────────────────
 function rowSoh(row) {
     if (!row.variantId) return null
-    const whId = row.itemWarehouseId ?? form.warehouse_id
+    const whId = row.itemWarehouseId
     if (!whId) return null
     const wMap = props.stockMap?.[whId]
     if (!wMap) return null
@@ -299,7 +299,6 @@ const validRows = computed(() =>
 // Draft can be saved with just warehouse + 1 item (purpose/location can be filled later)
 const canSubmit = computed(() => {
     if (form.processing) return false
-    if (!form.warehouse_id) return false
     if (validRows.value.length === 0) return false
     if (hasBlockedItem.value) return false
     return true
@@ -321,7 +320,7 @@ function submit() {
 
     // Use transform so photos (File objects) are included as FormData
     form
-        .transform(data => ({ ...data, items, photos: photoFiles.value }))
+        .transform(data => ({ ...data, items, photos: photoFiles.value, source_request_ids: props.sourceRequestIds ?? [] }))
         .post(route('gi.store'), { forceFormData: true, preserveScroll: true })
 }
 </script>
@@ -373,18 +372,6 @@ function submit() {
             </svg>
             {{ userDeptName || '—' }}
           </div>
-        </div>
-
-        <!-- Warehouse -->
-        <div class="gi-fg">
-          <label class="gi-lbl">{{ $t('gi.warehouse') }} <span class="gi-req">*</span></label>
-          <select class="gi-input" v-model="form.warehouse_id" required>
-            <option value="">{{ $t('gi.selectWh') }}</option>
-            <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">
-              {{ wh.code }} · {{ wh.name }}
-            </option>
-          </select>
-          <span class="gi-err" v-if="form.errors.warehouse_id">{{ form.errors.warehouse_id }}</span>
         </div>
 
         <!-- Project -->

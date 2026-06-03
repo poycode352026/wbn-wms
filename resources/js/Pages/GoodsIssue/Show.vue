@@ -9,11 +9,12 @@ const { t, locale } = useI18n()
 const page = usePage()
 
 const props = defineProps({
-    gi:          Object,
-    userRole:    String,
-    userId:      Number,
-    operators:   Array,
-    locationMap: { type: Object, default: () => ({}) },
+    gi:                 Object,
+    userRole:           String,
+    userId:             Number,
+    operators:          Array,
+    locationMap:        { type: Object, default: () => ({}) },
+    warehouseStockMap:  { type: Object, default: () => null },
 })
 
 const flash = computed(() => page.props.flash ?? {})
@@ -189,16 +190,34 @@ function rejectGI() {
 
 const selectedOperator = ref('')
 const assigning        = ref(false)
+
+// Per-item warehouse overrides (wh_admin during assign)
+const itemWarehouses = ref({})
+watch(() => props.gi?.items, (items) => {
+    if (!items) return
+    const map = {}
+    items.forEach(item => { map[item.id] = item.item_warehouse_id ?? null })
+    itemWarehouses.value = map
+}, { immediate: true })
+
 function assignOperator() {
     if (!selectedOperator.value) return
     assigning.value = true
-    router.post(route('gi.assign', props.gi.id), { operator_id: selectedOperator.value }, {
+    const item_warehouses = (props.gi?.items ?? []).map(item => ({
+        item_id:      item.id,
+        warehouse_id: itemWarehouses.value[item.id] ?? null,
+    }))
+    router.post(route('gi.assign', props.gi.id), { operator_id: selectedOperator.value, item_warehouses }, {
         onFinish: () => { assigning.value = false },
     })
 }
 function selfAssign() {
     assigning.value = true
-    router.post(route('gi.assign', props.gi.id), { operator_id: props.userId }, {
+    const item_warehouses = (props.gi?.items ?? []).map(item => ({
+        item_id:      item.id,
+        warehouse_id: itemWarehouses.value[item.id] ?? null,
+    }))
+    router.post(route('gi.assign', props.gi.id), { operator_id: props.userId, item_warehouses }, {
         onFinish: () => { assigning.value = false },
     })
 }
@@ -421,6 +440,46 @@ function deletePhoto(photoId) {
       <div class="sh-action-content">
         <div class="sh-action-title">{{ $t('gi.assignOperatorTitle') }}</div>
         <div class="sh-action-sub">{{ $t('gi.assignOperatorSub') }}</div>
+
+        <!-- Per-item warehouse adjustment -->
+        <details v-if="props.warehouseStockMap" class="sh-wh-adjust">
+          <summary class="sh-wh-adjust-summary">⚙ Sesuaikan Gudang per Item</summary>
+          <table class="sh-wh-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Gudang Sumber</th>
+                <th class="right">Tersedia</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in gi.items" :key="item.id">
+                <td class="sh-wh-item-name">{{ itemName(item.variant) }}</td>
+                <td>
+                  <select class="sh-wh-select" v-model="itemWarehouses[item.id]">
+                    <option :value="null">— default ({{ gi.warehouse?.code }}) —</option>
+                    <option
+                      v-for="w in (props.warehouseStockMap?.[item.item_variant_id] ?? [])"
+                      :key="w.warehouse_id"
+                      :value="w.warehouse_id"
+                    >
+                      {{ w.warehouse_code }} — {{ w.warehouse_name }}
+                    </option>
+                  </select>
+                </td>
+                <td class="right sh-wh-avail">
+                  <template v-if="itemWarehouses[item.id]">
+                    {{ (props.warehouseStockMap?.[item.item_variant_id] ?? []).find(w => w.warehouse_id === itemWarehouses[item.id])?.available?.toLocaleString() ?? '—' }}
+                  </template>
+                  <template v-else>
+                    {{ (props.warehouseStockMap?.[item.item_variant_id] ?? []).reduce((s, w) => s + w.available, 0).toLocaleString() }}
+                  </template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
+
         <div class="sh-assign-row">
           <select class="sh-select" v-model="selectedOperator">
             <option value="">{{ $t('gi.selectOperator') }}</option>
@@ -490,6 +549,7 @@ function deletePhoto(photoId) {
                 <template v-if="locationMap[gi.items[i]?.item_variant_id]?.length">
                   <div v-for="loc in locationMap[gi.items[i].item_variant_id]" :key="loc.location_code"
                        class="sh-pick-loc-row">
+                    <span class="sh-wh-chip" style="margin-bottom:2px">🏭 {{ loc.warehouse_code ?? gi.items[i]?.itemWarehouse?.code ?? gi.warehouse?.code ?? '—' }}</span>
                     <span class="sh-loc-chip">📍 {{ loc.location_code ?? '—' }}</span>
                     <span class="sh-loc-avail">{{ fmtQty(loc.available) }} avail</span>
                   </div>
@@ -752,6 +812,7 @@ function deletePhoto(photoId) {
                     <template v-if="locationMap[item.item_variant_id]?.length">
                       <div v-for="loc in locationMap[item.item_variant_id]" :key="loc.location_code"
                         class="sh-loc-row">
+                        <span class="sh-wh-chip" style="margin-bottom:2px">🏭 {{ loc.warehouse_code ?? item.itemWarehouse?.code ?? gi.warehouse?.code ?? '—' }}</span>
                         <span class="sh-loc-chip">📍 {{ loc.location_code ?? '—' }}</span>
                         <span class="sh-loc-avail">{{ fmtQty(loc.available) }} avail</span>
                       </div>
@@ -936,6 +997,25 @@ function deletePhoto(photoId) {
   font-size:13px; outline:none; cursor:pointer;
 }
 .sh-select:focus { border-color:rgba(249,115,22,.5) }
+.sh-self-assign-btn {
+  appearance:none; border:1px solid rgba(249,115,22,.5); background:transparent;
+  color:#f97316; font-size:12px; font-weight:700; padding:8px 14px; border-radius:9px;
+  cursor:pointer; font-family:inherit; white-space:nowrap; transition:background 180ms,color 180ms;
+}
+.sh-self-assign-btn:hover { background:#f97316; color:#fff; border-color:#f97316 }
+.sh-self-assign-btn:disabled { opacity:.5; cursor:not-allowed }
+.sh-wh-adjust { margin-top:12px; border:1px solid var(--border); border-radius:10px; overflow:hidden }
+.sh-wh-adjust-summary { padding:8px 14px; cursor:pointer; font-size:12px; font-weight:700; color:var(--fg-2); user-select:none; background:var(--surface-2); }
+.sh-wh-adjust-summary:hover { color:var(--fg) }
+.sh-wh-table { width:100%; border-collapse:collapse; font-size:12.5px }
+.sh-wh-table th { text-align:left; padding:7px 12px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--fg-2); border-bottom:1px solid var(--border) }
+.sh-wh-table td { padding:8px 12px; border-bottom:1px solid var(--border-soft); vertical-align:middle }
+.sh-wh-table tr:last-child td { border-bottom:0 }
+.sh-wh-item-name { font-weight:600; color:var(--fg); max-width:200px }
+.sh-wh-select { width:100%; padding:5px 8px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--fg); font-size:12.5px; outline:none; cursor:pointer }
+.sh-wh-select:focus { border-color:rgba(249,115,22,.5) }
+.sh-wh-avail { color:#10b981; font-weight:700; font-variant-numeric:tabular-nums; text-align:right }
+.right { text-align:right }
 
 /* Buttons */
 .sh-btn-primary {

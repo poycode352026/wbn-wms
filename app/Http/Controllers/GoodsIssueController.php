@@ -207,7 +207,7 @@ class GoodsIssueController extends Controller
         $user = $request->user();
 
         $data = $request->validate([
-            'warehouse_id'             => ['required', 'exists:warehouses,id'],
+            'warehouse_id'             => ['nullable', 'exists:warehouses,id'],
             'project'                  => ['nullable', 'string', 'max:255'],
             'purpose'                  => ['nullable', 'string', 'max:500'],
             'usage_location'           => ['nullable', 'string', 'max:255'],
@@ -225,6 +225,8 @@ class GoodsIssueController extends Controller
             'items.*.item_warehouse_id'=> ['nullable', 'exists:warehouses,id'],
             'photos'                   => ['nullable', 'array', 'max:10'],
             'photos.*'                 => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'source_request_ids'       => ['nullable', 'array'],
+            'source_request_ids.*'     => ['exists:employee_requests,id'],
         ]);
 
         // ── Server-side cooldown validation ────────────────────────────────────
@@ -259,9 +261,17 @@ class GoodsIssueController extends Controller
         // (Hanya enforce saat submit dari show page, bukan saat simpan draft awal)
 
         $gi = DB::transaction(function () use ($data, $user, $request) {
+            // Auto-derive warehouse_id from the most-used item warehouse, or fall back to first warehouse
+            $warehouseId = $data['warehouse_id'] ?? null;
+            if (!$warehouseId) {
+                $itemWhIds = collect($data['items'])->pluck('item_warehouse_id')->filter()->countBy();
+                $warehouseId = $itemWhIds->sortDesc()->keys()->first()
+                    ?? \App\Models\Warehouse::orderBy('sort_order')->value('id');
+            }
+
             $gi = GoodsIssue::create([
                 'gi_number'      => GoodsIssue::generateGiNumber(),
-                'warehouse_id'   => $data['warehouse_id'],
+                'warehouse_id'   => $warehouseId,
                 'department_id'  => $user->department_id,
                 'requested_by'   => $user->id,
                 'project'        => $data['project'] ?? null,
@@ -301,6 +311,13 @@ class GoodsIssueController extends Controller
                         'uploaded_by'    => $user->id,
                     ]);
                 }
+            }
+
+            // Link source employee requests to this GI
+            $srcIds = array_filter($request->input('source_request_ids', []));
+            if (!empty($srcIds)) {
+                EmployeeRequest::whereIn('id', $srcIds)
+                    ->update(['goods_issue_id' => $gi->id]);
             }
 
             return $gi;
@@ -353,22 +370,47 @@ class GoodsIssueController extends Controller
                 if (!isset($locationMap[$vid])) $locationMap[$vid] = [];
                 foreach ($ledgers as $ledger) {
                     $locationMap[$vid][] = [
-                        'location_code' => $ledger->location?->code,
-                        'location_name' => $ledger->location?->name,
-                        'qty_on_hand'   => (float) $ledger->qty_on_hand,
-                        'qty_reserved'  => (float) $ledger->qty_reserved,
-                        'available'     => max(0, (float) $ledger->qty_on_hand - (float) $ledger->qty_reserved),
+                        'warehouse_id'   => $whId,
+                        'warehouse_code' => $gItem->itemWarehouse?->code ?? $gi->warehouse?->code ?? '—',
+                        'warehouse_name' => $gItem->itemWarehouse?->name ?? $gi->warehouse?->name ?? '—',
+                        'location_code'  => $ledger->location?->code,
+                        'location_name'  => $ledger->location?->name,
+                        'qty_on_hand'    => (float) $ledger->qty_on_hand,
+                        'qty_reserved'   => (float) $ledger->qty_reserved,
+                        'available'      => max(0, (float) $ledger->qty_on_hand - (float) $ledger->qty_reserved),
                     ];
                 }
             }
         }
 
+        // Per-variant warehouse stock map — only for wh_admin when assigning
+        $warehouseStockMap = null;
+        if ($gi->status === 'approved' && in_array($user->role, ['wh_admin', 'super_admin'])) {
+            $variantIds = $gi->items->pluck('item_variant_id')->unique();
+            $ledgers    = StockLedger::whereIn('item_variant_id', $variantIds)
+                ->where('qty_on_hand', '>', 0)
+                ->with('warehouse:id,code,name')
+                ->get(['item_variant_id', 'warehouse_id', 'qty_on_hand', 'qty_reserved']);
+
+            foreach ($ledgers as $l) {
+                $warehouseStockMap[$l->item_variant_id][] = [
+                    'warehouse_id'   => $l->warehouse_id,
+                    'warehouse_code' => $l->warehouse?->code,
+                    'warehouse_name' => $l->warehouse?->name,
+                    'qty_on_hand'    => (float) $l->qty_on_hand,
+                    'qty_reserved'   => (float) $l->qty_reserved,
+                    'available'      => max(0, (float) $l->qty_on_hand - (float) $l->qty_reserved),
+                ];
+            }
+        }
+
         return Inertia::render('GoodsIssue/Show', [
-            'gi'          => $gi,
-            'userRole'    => $user->role,
-            'userId'      => $user->id,
-            'operators'   => $operators,
-            'locationMap' => $locationMap,
+            'gi'                => $gi,
+            'userRole'          => $user->role,
+            'userId'            => $user->id,
+            'operators'         => $operators,
+            'locationMap'       => $locationMap,
+            'warehouseStockMap' => $warehouseStockMap,
         ]);
     }
 
@@ -546,6 +588,10 @@ class GoodsIssueController extends Controller
             'rejection_reason' => $data['reason'],
         ]);
 
+        // Unlink employee requests so they can be re-submitted
+        EmployeeRequest::where('goods_issue_id', $gi->id)
+            ->update(['goods_issue_id' => null]);
+
         // Return stock reservation
         $this->clearReservation($gi);
 
@@ -580,12 +626,24 @@ class GoodsIssueController extends Controller
         }
 
         $data = $request->validate([
-            'operator_id' => ['required', 'exists:users,id'],
+            'operator_id'                       => ['required', 'exists:users,id'],
+            'item_warehouses'                   => ['nullable', 'array'],
+            'item_warehouses.*.item_id'         => ['required', 'exists:goods_issue_items,id'],
+            'item_warehouses.*.warehouse_id'    => ['nullable', 'exists:warehouses,id'],
         ]);
 
         // Operator can only assign themselves; wh_admin can assign anyone
         if ($isOperator && $data['operator_id'] != $user->id) {
             abort(403, 'Operator hanya bisa assign diri sendiri.');
+        }
+
+        // Update per-item warehouse if provided (wh_admin only)
+        if ($isWhAdmin && !empty($data['item_warehouses'])) {
+            foreach ($data['item_warehouses'] as $iw) {
+                GoodsIssueItem::where('id', $iw['item_id'])
+                    ->where('goods_issue_id', $gi->id)
+                    ->update(['item_warehouse_id' => $iw['warehouse_id'] ?: null]);
+            }
         }
 
         $gi->update([
@@ -770,6 +828,10 @@ class GoodsIssueController extends Controller
             }
 
             $gi->update(['status' => 'completed', 'completed_at' => now()]);
+
+            // Auto-process linked employee requests
+            EmployeeRequest::where('goods_issue_id', $gi->id)
+                ->update(['status' => 'processed']);
         });
 
         // Notify requester

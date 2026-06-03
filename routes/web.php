@@ -137,6 +137,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/scan/{goodsIssue}/start',    [OperatorController::class, 'startPicking'])->name('start-picking');
         Route::post('/scan/{goodsIssue}/submit',   [OperatorController::class, 'submitPickup'])->name('submit-pickup');
         Route::post('/scan/{goodsIssue}/confirm',  [OperatorController::class, 'confirmPickup'])->name('confirm-pickup');
+        Route::get('/history',                     [OperatorController::class, 'history']     )->name('history');
     });
 
     // ── Employee Portal ────────────────────────────────────────────────────────────────

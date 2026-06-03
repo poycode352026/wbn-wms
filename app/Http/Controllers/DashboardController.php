@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CooldownLog;
 use App\Models\Employee;
+use App\Models\EmployeeRequest;
 use App\Models\GoodsIssue;
 use App\Models\GoodsReceipt;
 use App\Models\Item;
@@ -57,8 +58,9 @@ class DashboardController extends Controller
             '90' => $this->buildChart('month', 3),
         ];
 
-        // ── Recent transactions (GR + GI mixed, latest 10) ────────────────────
-        $recentGR = GoodsReceipt::withCount('items')
+        // ── Recent transactions (GR + GI mixed, latest 10 — completed only) ────
+        $recentGR = GoodsReceipt::where('status', 'completed')
+            ->withCount('items')
             ->orderByDesc('created_at')
             ->limit(10)
             ->get(['id', 'gr_number', 'status', 'created_at'])
@@ -72,7 +74,8 @@ class DashboardController extends Controller
                 'ts'     => $r->created_at->timestamp,
             ]);
 
-        $recentGI = GoodsIssue::withCount('items')
+        $recentGI = GoodsIssue::where('status', 'completed')
+            ->withCount('items')
             ->orderByDesc('created_at')
             ->limit(10)
             ->get(['id', 'gi_number', 'status', 'created_at'])
@@ -134,10 +137,31 @@ class DashboardController extends Controller
             ->values();
 
         // ── Mandatory Distribution Overdue ────────────────────────────────────
-        $role   = auth()->user()->role;
-        $deptId = in_array($role, ['admin_dept', 'manager_dept']) ? auth()->user()->department_id : null;
+        $user   = auth()->user();
+        $role   = $user->role;
+        $deptId = in_array($role, ['admin_dept', 'manager_dept']) ? $user->department_id : null;
         $showMandatory = in_array($role, ['super_admin', 'wh_admin', 'admin_dept', 'manager_dept', 'wh_manager']);
         $mandatoryOverdue = $showMandatory ? $this->getMandatoryOverdue($deptId) : null;
+
+        // ── Admin Dept dashboard stats ─────────────────────────────────────────
+        $adminDeptStats = null;
+        if ($role === 'admin_dept' && $user->department_id) {
+            $base = GoodsIssue::where('department_id', $user->department_id);
+            $adminDeptStats = [
+                'total'      => (clone $base)->count(),
+                'completed'  => (clone $base)->where('status', 'completed')->count(),
+                'inProgress' => (clone $base)->whereIn('status', [
+                    'pending_manager_dept', 'pending_wh_manager', 'pending_wh_supervisor',
+                    'assigned', 'in_picking', 'ready_to_pickup',
+                ])->count(),
+                'draft'    => (clone $base)->where('status', 'draft')->count(),
+                'rejected' => (clone $base)->where('status', 'rejected')->count(),
+                'pendingRequests' => EmployeeRequest::where('department_id', $user->department_id)
+                    ->where('status', 'pending')
+                    ->whereNull('goods_issue_id')
+                    ->count(),
+            ];
+        }
 
         return Inertia::render('Dashboard/Index', [
             'stats' => [
@@ -152,8 +176,9 @@ class DashboardController extends Controller
             'warehouseStats'  => $warehouseStats,
             'chartData'       => $chartData,
             'recentTx'        => $recentTx,
-            'lowStockItems'   => $lowStockItems,
+            'lowStockItems'    => $lowStockItems,
             'mandatoryOverdue' => $mandatoryOverdue,
+            'adminDeptStats'   => $adminDeptStats,
         ]);
     }
 
