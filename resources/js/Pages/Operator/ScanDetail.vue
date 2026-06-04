@@ -95,15 +95,47 @@ function doSubmitPickup() {
         .post(route('operator.submit-pickup', props.gi.id), { preserveScroll: true })
 }
 
-function doConfirmPickup() {
+// Compress image to JPEG max 1280px, quality 0.82 — prevents upload hang on large phone photos
+function compressPhoto(file) {
+    return new Promise(resolve => {
+        const img = new Image()
+        const url = URL.createObjectURL(file)
+        img.onload = () => {
+            URL.revokeObjectURL(url)
+            const MAX = 1280
+            const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+            const canvas = document.createElement('canvas')
+            canvas.width  = Math.round(img.width  * scale)
+            canvas.height = Math.round(img.height * scale)
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+            canvas.toBlob(
+                blob => resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
+                'image/jpeg', 0.82
+            )
+        }
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file) } // fallback: use original
+        img.src = url
+    })
+}
+
+async function doConfirmPickup() {
     if (confirmProcessing.value || photoFiles.value.length === 0) return
     confirmProcessing.value = true
-    // Build FormData manually — Inertia useForm doesn't reliably carry File[] through transform()
-    const fd = new FormData()
-    photoFiles.value.forEach(f => fd.append('photos[]', f))
-    router.post(route('operator.confirm-pickup', props.gi.id), fd, {
-        onFinish: () => { confirmProcessing.value = false },
-    })
+    try {
+        const fd = new FormData()
+        // Compress each photo before upload
+        for (const f of photoFiles.value) {
+            const compressed = await compressPhoto(f)
+            fd.append('photos[]', compressed)
+        }
+        router.post(route('operator.confirm-pickup', props.gi.id), fd, {
+            forceFormData: true,
+            onFinish: () => { confirmProcessing.value = false },
+            onError:  () => { confirmProcessing.value = false },
+        })
+    } catch (_) {
+        confirmProcessing.value = false
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

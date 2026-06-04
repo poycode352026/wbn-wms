@@ -53,6 +53,17 @@ const hasBarcodeDetector = typeof window !== 'undefined' && 'BarcodeDetector' in
 async function openCamera() {
     cameraError.value = ''
     cameraOpen.value  = true
+
+    // Kamera hanya bisa dibuka via HTTPS (browser security requirement)
+    if (!window.isSecureContext) {
+        cameraError.value = 'Scan kamera memerlukan koneksi HTTPS. Gunakan input manual di bawah untuk memasukkan nomor GI secara langsung.'
+        return
+    }
+    if (!hasBarcodeDetector) {
+        cameraError.value = 'Browser ini tidak mendukung scan QR otomatis. Gunakan Chrome terbaru atau input manual di bawah.'
+        return
+    }
+
     await new Promise(r => setTimeout(r, 100)) // let DOM render
 
     try {
@@ -77,7 +88,7 @@ async function openCamera() {
         }, 400)
     } catch (err) {
         cameraError.value = err.name === 'NotAllowedError'
-            ? 'Izin kamera ditolak. Aktifkan izin kamera di pengaturan browser.'
+            ? 'Izin kamera ditolak. Aktifkan izin kamera di pengaturan browser, atau gunakan input manual.'
             : 'Tidak bisa membuka kamera: ' + err.message
     }
 }
@@ -95,7 +106,7 @@ function closeCamera() {
 onMounted(() => {
     // Auto-open camera if navigated from Scan button (?camera=1)
     const url = new URL(window.location.href)
-    if (url.searchParams.get('camera') === '1' && hasBarcodeDetector) {
+    if (url.searchParams.get('camera') === '1') {
         openCamera()
         // Clean up URL param without reload
         url.searchParams.delete('camera')
@@ -133,9 +144,8 @@ function itemName(variant) {
     <div class="op-card op-scan-card">
       <div class="op-scan-label">{{ $t('operator.scanInput') }}</div>
 
-      <!-- Camera button (only if BarcodeDetector available) -->
+      <!-- Camera button -->
       <button
-        v-if="hasBarcodeDetector"
         type="button"
         class="op-cam-btn"
         @click="openCamera"
@@ -157,7 +167,6 @@ function itemName(variant) {
           class="op-scan-input"
           placeholder="GI-2025-001..."
           autocomplete="off"
-          inputmode="none"
         />
         <button type="button" class="op-scan-go" @click="handleScan">→</button>
       </div>
