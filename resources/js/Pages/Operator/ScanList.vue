@@ -54,13 +54,14 @@ async function openCamera() {
     cameraError.value = ''
     cameraOpen.value  = true
 
-    // Kamera hanya bisa dibuka via HTTPS (browser security requirement)
-    if (!window.isSecureContext) {
-        cameraError.value = 'Scan kamera memerlukan koneksi HTTPS. Gunakan input manual di bawah untuk memasukkan nomor GI secara langsung.'
+    // Cek apakah browser support getUserMedia
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        cameraError.value = 'Kamera tidak tersedia. Pastikan akses via HTTPS dan gunakan Chrome terbaru. Atau gunakan input manual di bawah.'
         return
     }
+
     if (!hasBarcodeDetector) {
-        cameraError.value = 'Browser ini tidak mendukung scan QR otomatis. Gunakan Chrome terbaru atau input manual di bawah.'
+        cameraError.value = 'Browser ini tidak mendukung scan QR otomatis. Gunakan Chrome versi terbaru, atau input manual di bawah.'
         return
     }
 
@@ -88,7 +89,9 @@ async function openCamera() {
         }, 400)
     } catch (err) {
         cameraError.value = err.name === 'NotAllowedError'
-            ? 'Izin kamera ditolak. Aktifkan izin kamera di pengaturan browser, atau gunakan input manual.'
+            ? 'Izin kamera ditolak. Tap Allow/Izinkan saat browser meminta akses kamera.'
+            : err.name === 'NotFoundError'
+            ? 'Kamera tidak ditemukan di perangkat ini.'
             : 'Tidak bisa membuka kamera: ' + err.message
     }
 }
