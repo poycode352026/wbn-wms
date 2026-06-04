@@ -21,11 +21,11 @@ const props = defineProps({
 
 // ── form ───────────────────────────────────────────────────────────────────
 const form = useForm({
-    warehouse_id:   '',
-    project:        '',
-    purpose:        '',
-    notes:          '',
-    items:          [],
+    warehouse_id:       '',
+    project:            '',
+    business_function:  '',
+    purpose:            '',
+    items:              [],
 })
 
 // ── photo upload ───────────────────────────────────────────────────────────
@@ -325,20 +325,24 @@ function submit() {
         }
         return
     }
-    const items = validRows.value.map(r => ({
-        variant_id:         r.variantId,
-        requested_qty:      parseFloat(r.qty),
-        uom:                currentUom(r),
-        base_qty:           baseQty(r),
-        lv_id:              r.lvId || null,
-        employee_id:        r.employeeId || null,
-        store_to:           r.storeTo || null,
-        item_reason:        r.itemReason || null,
-        notes:              r.notes || null,
-        item_warehouse_id:  r.itemWarehouseId || null,
-    }))
+    // Build items — omit null fields entirely so forceFormData doesn't
+    // serialize them as the string "null" (which breaks exists: validation)
+    const items = validRows.value.map(r => {
+        const item = {
+            variant_id:    r.variantId,
+            requested_qty: parseFloat(r.qty),
+            uom:           currentUom(r),
+            base_qty:      baseQty(r),
+            store_to:      r.storeTo,
+        }
+        if (r.lvId)            item.lv_id = r.lvId
+        if (r.employeeId)      item.employee_id = r.employeeId
+        if (r.itemReason)      item.item_reason = r.itemReason
+        if (r.notes)           item.notes = r.notes
+        if (r.itemWarehouseId) item.item_warehouse_id = r.itemWarehouseId
+        return item
+    })
 
-    // Use transform so photos (File objects) are included as FormData
     form
         .transform(data => ({ ...data, items, photos: photoFiles.value, source_request_ids: props.sourceRequestIds ?? [] }))
         .post(route('gi.store'), { forceFormData: true, preserveScroll: true })
@@ -401,20 +405,19 @@ function submit() {
             :placeholder="$t('gi.projectPh')" maxlength="255" />
         </div>
 
-        <!-- Purpose -->
+        <!-- Business Function -->
         <div class="gi-fg">
-          <label class="gi-lbl">{{ $t('gi.purpose') }} <span class="gi-req">*</span></label>
-          <textarea class="gi-input gi-ta" v-model="form.purpose"
-            :placeholder="$t('gi.purposePh')" rows="3" required />
-          <span class="gi-err" v-if="form.errors.purpose">{{ form.errors.purpose }}</span>
+          <label class="gi-lbl">Business Function</label>
+          <input class="gi-input" type="text" v-model="form.business_function"
+            placeholder="Contoh: Operations, Maintenance, IT…" maxlength="255" />
         </div>
 
-        <!-- Usage Location -->
-        <!-- Notes -->
+        <!-- Purpose / Description — bigger textarea -->
         <div class="gi-fg">
-          <label class="gi-lbl">{{ $t('gi.notes') }}</label>
-          <textarea class="gi-input gi-ta" v-model="form.notes"
-            :placeholder="$t('gi.notesPh')" rows="2" />
+          <label class="gi-lbl">{{ $t('gi.purpose') }} / Description</label>
+          <textarea class="gi-input gi-ta gi-ta-purpose" v-model="form.purpose"
+            :placeholder="$t('gi.purposePh')" rows="5" />
+          <span class="gi-err" v-if="form.errors.purpose">{{ form.errors.purpose }}</span>
         </div>
       </div>
 
@@ -752,7 +755,8 @@ function submit() {
 }
 .gi-input:focus   { border-color:var(--orange-500) }
 .gi-input:disabled { opacity:.45; cursor:default }
-.gi-ta  { resize:vertical; min-height:74px; line-height:1.5 }
+.gi-ta         { resize:vertical; min-height:74px; line-height:1.5 }
+.gi-ta-purpose { min-height:120px; }
 .gi-input-sm { font-size:12px; padding:6px 10px }
 .gi-err { font-size:11.5px; color:#f87171 }
 

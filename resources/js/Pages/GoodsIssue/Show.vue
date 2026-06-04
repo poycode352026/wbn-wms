@@ -686,19 +686,14 @@ function deletePhoto(photoId) {
             <div class="sh-fld-val">{{ gi.project }}</div>
           </div>
 
+          <div v-if="gi.business_function" class="sh-field">
+            <div class="sh-fld-lbl">Business Function</div>
+            <div class="sh-fld-val">{{ gi.business_function }}</div>
+          </div>
+
           <div class="sh-field">
-            <div class="sh-fld-lbl">{{ $t('gi.purpose') }}</div>
+            <div class="sh-fld-lbl">{{ $t('gi.purpose') }} / Description</div>
             <div class="sh-fld-val sh-fld-multiline">{{ gi.purpose }}</div>
-          </div>
-
-          <div class="sh-field">
-            <div class="sh-fld-lbl">{{ $t('gi.usageLocationLbl') }}</div>
-            <div class="sh-fld-val">{{ gi.usage_location }}</div>
-          </div>
-
-          <div v-if="gi.notes" class="sh-field">
-            <div class="sh-fld-lbl">{{ $t('gi.notesLbl') }}</div>
-            <div class="sh-fld-val sh-fld-multiline">{{ gi.notes }}</div>
           </div>
 
           <div class="sh-divider"></div>

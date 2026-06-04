@@ -10,7 +10,7 @@ class GoodsIssue extends Model
 {
     protected $fillable = [
         'gi_number', 'warehouse_id', 'department_id', 'requested_by',
-        'project', 'purpose', 'usage_location', 'status', 'notes',
+        'project', 'business_function', 'purpose', 'usage_location', 'status', 'notes',
         'assigned_to', 'picked_by',
         'submitted_at', 'picked_at', 'completed_at',
         'rejection_reason',

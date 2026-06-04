@@ -209,7 +209,8 @@ class GoodsIssueController extends Controller
         $data = $request->validate([
             'warehouse_id'             => ['nullable', 'exists:warehouses,id'],
             'project'                  => ['nullable', 'string', 'max:255'],
-            'purpose'                  => ['nullable', 'string', 'max:500'],
+            'business_function'        => ['nullable', 'string', 'max:255'],
+            'purpose'                  => ['nullable', 'string', 'max:2000'],
             'notes'                    => ['nullable', 'string', 'max:2000'],
             'items'                    => ['required', 'array', 'min:1'],
             'items.*.variant_id'       => ['required', 'exists:item_variants,id'],
@@ -273,9 +274,10 @@ class GoodsIssueController extends Controller
                 'warehouse_id'   => $warehouseId,
                 'department_id'  => $user->department_id,
                 'requested_by'   => $user->id,
-                'project'        => $data['project'] ?? null,
-                'purpose'        => $data['purpose'] ?? null,
-                'notes'          => $data['notes'] ?? null,
+                'project'           => $data['project'] ?? null,
+                'business_function' => $data['business_function'] ?? null,
+                'purpose'           => $data['purpose'] ?? null,
+                'notes'             => $data['notes'] ?? null,
                 'status'         => 'draft',
             ]);
 
