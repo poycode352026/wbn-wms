@@ -356,7 +356,7 @@ const messages = {
             item: {
                 users:'Users', departments:'Departments', permissions:'Permissions',
                 warehouses:'Warehouses', rackMgmt:'Rack Management', locations:'Locations',
-                itemMaster:'Item Master', goodsReceipt:'Goods Receipt', goodsIssue:'Goods Issue',
+                itemMaster:'Item Master', stockInput:'Stock Input', goodsReceipt:'Goods Receipt', goodsIssue:'Goods Issue',
                 inventoryReport:'Inventory Report', transactionLog:'Transaction Log', auditTrail:'Audit Trail',
             },
         },
@@ -1386,7 +1386,7 @@ const messages = {
             item: {
                 users:'用户', departments:'部门', permissions:'权限',
                 warehouses:'仓库', rackMgmt:'货架管理', locations:'位置',
-                itemMaster:'物料主数据', goodsReceipt:'收货', goodsIssue:'发货',
+                itemMaster:'物料主数据', stockInput:'库存录入', goodsReceipt:'收货', goodsIssue:'发货',
                 inventoryReport:'库存报表', transactionLog:'交易记录', auditTrail:'审计跟踪',
             },
         },
@@ -2398,7 +2398,7 @@ const messages = {
             item: {
                 users:'Pengguna', departments:'Departemen', permissions:'Izin Akses',
                 warehouses:'Gudang', rackMgmt:'Manajemen Rak', locations:'Lokasi',
-                itemMaster:'Master Barang', goodsReceipt:'Penerimaan Barang', goodsIssue:'Pengeluaran Barang',
+                itemMaster:'Master Barang', stockInput:'Input Stok', goodsReceipt:'Penerimaan Barang', goodsIssue:'Pengeluaran Barang',
                 inventoryReport:'Laporan Inventaris', transactionLog:'Log Transaksi', auditTrail:'Jejak Audit',
             },
         },

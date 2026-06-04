@@ -99,35 +99,29 @@ function notifItemClass(type) {
     return 'dd-info'
 }
 
-function getCsrf() {
-    return document.head.querySelector('meta[name="csrf-token"]')?.content ?? ''
-}
-
 function markNotifRead(notif) {
+    bellOpen.value = false
+    // Mark as read via Inertia (handles CSRF automatically)
     if (!notif.is_read) {
         notif.is_read = true
-        fetch(route('notifications.read', notif.id), {
-            method:  'POST',
-            headers: { 'X-CSRF-TOKEN': getCsrf(), 'Accept': 'application/json' },
+        router.post(route('notifications.read', notif.id), {}, {
+            preserveState: true, preserveScroll: true, only: [],
         })
     }
-    bellOpen.value = false
-    // Navigate to relevant page when notification is clicked
-    // GI notifications include a full URL in data.route; GR uses data.gr_id
-    if (notif.data?.route && (notif.data.route.startsWith('/') || notif.data.route.includes('://'))) {
+    // Navigate to relevant page
+    if (notif.data?.route && notif.data.route.startsWith('/')) {
         router.visit(notif.data.route)
     } else if (notif.data?.gi_id) {
-        router.visit(route('gi.show', notif.data.gi_id))
+        router.visit('/goods-issues/' + notif.data.gi_id)
     } else if (notif.data?.gr_id) {
-        router.visit(route('gr.show', notif.data.gr_id))
+        router.visit('/goods-receipts/' + notif.data.gr_id)
     }
 }
 
 function markAllRead() {
     localNotifs.value.forEach(n => (n.is_read = true))
-    fetch(route('notifications.read-all'), {
-        method:  'POST',
-        headers: { 'X-CSRF-TOKEN': getCsrf(), 'Accept': 'application/json' },
+    router.post(route('notifications.read-all'), {}, {
+        preserveState: true, preserveScroll: true, only: [],
     })
 }
 

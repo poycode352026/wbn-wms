@@ -186,7 +186,7 @@ class OperatorController extends Controller
             [
                 'gi_id'     => $goodsIssue->id,
                 'gi_number' => $goodsIssue->gi_number,
-                'route'     => route('gi.show', $goodsIssue->id),
+                'route'     => '/goods-issues/' . $goodsIssue->id,
             ]
         );
 
@@ -290,7 +290,7 @@ class OperatorController extends Controller
             [
                 'gi_id'     => $goodsIssue->id,
                 'gi_number' => $goodsIssue->gi_number,
-                'route'     => route('gi.show', $goodsIssue->id),
+                'route'     => '/goods-issues/' . $goodsIssue->id,
             ]
         );
 

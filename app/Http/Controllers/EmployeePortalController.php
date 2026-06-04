@@ -185,7 +185,7 @@ class EmployeePortalController extends Controller
                 'type'    => 'EMPLOYEE_PPE_REQUEST',
                 'title'   => "Mandatory Item Request: {$employee->name}",
                 'message' => "{$employee->name} has submitted a mandatory item request ({$itemCount} item(s)). Please review and create a Goods Issue.",
-                'data'    => ['employee_id' => $employee->id, 'route' => route('employees.index')],
+                'data'    => ['employee_id' => $employee->id, 'route' => '/employees'],
                 'is_read' => false,
             ]);
         }

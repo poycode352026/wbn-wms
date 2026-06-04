@@ -24,7 +24,6 @@ const form = useForm({
     warehouse_id:   '',
     project:        '',
     purpose:        '',
-    usage_location: '',
     notes:          '',
     items:          [],
 })
@@ -109,10 +108,7 @@ onMounted(() => {
         }).filter(r => r && r.variantId)
         if (filled.length) rows.value = filled
 
-        // Auto-fill usage_location with department name if currently empty
-        if (!form.usage_location && props.userDeptName) {
-            form.usage_location = props.userDeptName
-        }
+        // usage_location removed
     }
 })
 
@@ -292,11 +288,13 @@ const hasBlockedItem = computed(() =>
 )
 
 // ── submit ─────────────────────────────────────────────────────────────────
+const formSubmitAttempted = ref(false)
+
 const validRows = computed(() =>
     rows.value.filter(r => r.variantId && r.qty !== '' && !isNaN(parseFloat(r.qty)) && parseFloat(r.qty) > 0)
 )
 
-// Draft can be saved with just warehouse + 1 item (purpose/location can be filled later)
+// Draft can be saved with just warehouse + 1 item
 const canSubmit = computed(() => {
     if (form.processing) return false
     if (validRows.value.length === 0) return false
@@ -305,6 +303,10 @@ const canSubmit = computed(() => {
 })
 
 function submit() {
+    formSubmitAttempted.value = true
+    // Validate store_to required for all valid rows
+    const missingStoreTo = validRows.value.some(r => !r.storeTo?.trim())
+    if (missingStoreTo) return
     const items = validRows.value.map(r => ({
         variant_id:         r.variantId,
         requested_qty:      parseFloat(r.qty),
@@ -390,13 +392,6 @@ function submit() {
         </div>
 
         <!-- Usage Location -->
-        <div class="gi-fg">
-          <label class="gi-lbl">{{ $t('gi.usageLocation') }} <span class="gi-req">*</span></label>
-          <input class="gi-input" type="text" v-model="form.usage_location"
-            :placeholder="$t('gi.usageLocationPh')" maxlength="255" required />
-          <span class="gi-err" v-if="form.errors.usage_location">{{ form.errors.usage_location }}</span>
-        </div>
-
         <!-- Notes -->
         <div class="gi-fg">
           <label class="gi-lbl">{{ $t('gi.notes') }}</label>
@@ -515,11 +510,13 @@ function submit() {
                 <span>Stok di gudang ini tidak mencukupi</span>
               </div>
 
-              <!-- Store To -->
+              <!-- Store To (required) -->
               <div class="gi-detail-field">
-                <label class="gi-det-lbl">{{ $t('gi.storeTo') }}</label>
+                <label class="gi-det-lbl gi-det-req">{{ $t('gi.storeTo') }} <span class="gi-req">*</span></label>
                 <input class="gi-input gi-input-sm" type="text" v-model="row.storeTo"
+                  :class="{ 'gi-input-err': !row.storeTo?.trim() && formSubmitAttempted }"
                   :placeholder="$t('gi.storeToPh')" maxlength="255" />
+                <span v-if="!row.storeTo?.trim() && formSubmitAttempted" class="gi-err">Tujuan/Pemakai wajib diisi</span>
               </div>
 
               <!-- LV Number (if cooldown_track_by = lv_number) -->

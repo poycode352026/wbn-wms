@@ -210,7 +210,6 @@ class GoodsIssueController extends Controller
             'warehouse_id'             => ['nullable', 'exists:warehouses,id'],
             'project'                  => ['nullable', 'string', 'max:255'],
             'purpose'                  => ['nullable', 'string', 'max:500'],
-            'usage_location'           => ['nullable', 'string', 'max:255'],
             'notes'                    => ['nullable', 'string', 'max:2000'],
             'items'                    => ['required', 'array', 'min:1'],
             'items.*.variant_id'       => ['required', 'exists:item_variants,id'],
@@ -219,7 +218,7 @@ class GoodsIssueController extends Controller
             'items.*.base_qty'         => ['required', 'numeric', 'min:0.01'],
             'items.*.lv_id'            => ['nullable', 'exists:vehicles,id'],
             'items.*.employee_id'      => ['nullable', 'exists:employees,id'],
-            'items.*.store_to'         => ['nullable', 'string', 'max:255'],
+            'items.*.store_to'         => ['required', 'string', 'max:255'],
             'items.*.item_reason'      => ['nullable', 'string', 'max:1000'],
             'items.*.notes'            => ['nullable', 'string', 'max:500'],
             'items.*.item_warehouse_id'=> ['nullable', 'exists:warehouses,id'],
@@ -276,7 +275,6 @@ class GoodsIssueController extends Controller
                 'requested_by'   => $user->id,
                 'project'        => $data['project'] ?? null,
                 'purpose'        => $data['purpose'] ?? null,
-                'usage_location' => $data['usage_location'] ?? null,
                 'notes'          => $data['notes'] ?? null,
                 'status'         => 'draft',
             ]);
@@ -456,7 +454,7 @@ class GoodsIssueController extends Controller
                 'GI_SUBMITTED',
                 "New GI Request: {$gi->gi_number}",
                 "{$submittedBy->name} has submitted a goods issue request. Please review.",
-                ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+                ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
             );
         }
 
@@ -525,7 +523,7 @@ class GoodsIssueController extends Controller
         // Notify next role
         NotificationService::sendToRole(
             $t['notifyRole'], $t['notifyType'], $t['notifyTitle'], $t['notifyMsg'],
-            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
         );
 
         // If final approval → also notify admin_dept requester
@@ -535,7 +533,7 @@ class GoodsIssueController extends Controller
                 'GI_APPROVED_ALL',
                 "GI Approved: {$gi->gi_number}",
                 "Your GI request {$gi->gi_number} has been fully approved and is being processed.",
-                ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+                ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
             );
         }
 
@@ -601,7 +599,7 @@ class GoodsIssueController extends Controller
             'GI_REJECTED',
             "GI Ditolak: {$gi->gi_number}",
             "Request GI Anda ditolak. Alasan: {$data['reason']}",
-            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
         );
 
         return back()->with('success', "GI {$gi->gi_number} telah ditolak.");
@@ -658,7 +656,7 @@ class GoodsIssueController extends Controller
                 'GI_ASSIGNED',
                 "Job Picking: {$gi->gi_number}",
                 "Anda telah di-assign untuk mempersiapkan barang GI {$gi->gi_number}.",
-                ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+                ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
             );
         }
 
@@ -668,7 +666,7 @@ class GoodsIssueController extends Controller
             'GI_ASSIGNED',
             "GI Sedang Diproses: {$gi->gi_number}",
             "Request GI Anda sedang dipersiapkan oleh operator.",
-            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
         );
 
         return back()->with('success', "Operator berhasil di-assign untuk GI {$gi->gi_number}.");
@@ -755,7 +753,7 @@ class GoodsIssueController extends Controller
             'GI_READY_PICKUP',
             "Barang Siap: {$gi->gi_number}",
             "Barang Anda sudah siap di staging area gudang. Tunjukkan barcode GI untuk pengambilan.",
-            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
         );
 
         return back()->with('success', "GI {$gi->gi_number} siap untuk diambil.");
@@ -840,7 +838,7 @@ class GoodsIssueController extends Controller
             'GI_COMPLETED',
             "GI Selesai: {$gi->gi_number}",
             "Barang GI {$gi->gi_number} telah berhasil diambil. Terima kasih.",
-            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => route('gi.show', $gi->id)]
+            ['gi_id' => $gi->id, 'gi_number' => $gi->gi_number, 'route' => '/goods-issues/' . $gi->id]
         );
 
         return back()->with('success', "GI {$gi->gi_number} telah selesai. Barang berhasil diambil.");

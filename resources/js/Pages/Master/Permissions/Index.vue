@@ -21,7 +21,7 @@ const ROLES = [
 const MODULES = [
     { key: 'system',    cls: 'grp-blue',   items: ['users','departments','permissions'] },
     { key: 'warehouse', cls: 'grp-orange', items: ['warehouses','rackMgmt','locations'] },
-    { key: 'inventory', cls: 'grp-green',  items: ['itemMaster','goodsReceipt','goodsIssue'] },
+    { key: 'inventory', cls: 'grp-green',  items: ['itemMaster','stockInput','goodsReceipt','goodsIssue'] },
     { key: 'reports',   cls: 'grp-purple', items: ['inventoryReport','transactionLog','auditTrail'] },
 ]
 
@@ -33,6 +33,7 @@ const DEFAULTS = {
         warehouses:      [1,0,0,0,null],
         locations:       [1,0,0,0,null],
         itemMaster:      [1,0,0,0,null],
+        stockInput:      [1,1,1,0,null],
         goodsReceipt:    [1,1,1,0,null],
         inventoryReport: [1,0,0,0,null],
     },
@@ -43,6 +44,7 @@ const DEFAULTS = {
         rackMgmt:        [1,0,0,0,null],
         locations:       [1,0,0,0,null],
         itemMaster:      [1,0,0,0,null],
+        stockInput:      [1,1,1,0,null],
         goodsReceipt:    [1,0,1,0,null],
         goodsIssue:      [1,0,0,0,null],
         inventoryReport: [1,0,0,0,null],
@@ -52,7 +54,7 @@ const DEFAULTS = {
         '*':             [0,0,0,0,null],
         departments:     [1,0,0,0,null],
         itemMaster:      [1,0,0,0,null],
-        goodsReceipt:    [1,0,0,0,null],
+        // goodsReceipt: hidden — admin_dept does not need GR access
         goodsIssue:      [1,1,0,0,null],
         inventoryReport: [1,0,0,0,null],
         transactionLog:  [1,0,0,0,null],
@@ -61,7 +63,6 @@ const DEFAULTS = {
         '*':             [0,0,0,0,null],
         departments:     [1,0,0,0,null],
         itemMaster:      [1,0,0,0,null],
-        goodsReceipt:    [1,0,0,0,null],
         goodsIssue:      [1,0,0,0,1],
         inventoryReport: [1,0,0,0,null],
         transactionLog:  [1,0,0,0,null],

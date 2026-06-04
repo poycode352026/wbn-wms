@@ -27,8 +27,8 @@ class DashboardController extends Controller
         $totalWarehouses = Warehouse::where('is_active', true)->count();
 
         $today   = Carbon::today();
-        $grToday = GoodsReceipt::whereDate('created_at', $today)->count();
-        $giToday = GoodsIssue::whereDate('created_at', $today)->count();
+        $grToday = GoodsReceipt::where('status', 'completed')->whereDate('updated_at', $today)->count();
+        $giToday = GoodsIssue::where('status', 'completed')->whereDate('updated_at', $today)->count();
 
         // Low stock — per variant (each active variant checked independently)
         $allActiveItems = Item::where('is_active', true)->where('minimum_stock', '>', 0)
@@ -69,7 +69,7 @@ class DashboardController extends Controller
                 'doc'    => $r->gr_number,
                 'items'  => $r->items_count,
                 'status' => $r->status,
-                'route'  => route('gr.show', $r->id),
+                'route'  => '/goods-receipts/' . $r->id,
                 'date'   => $r->created_at->toISOString(),
                 'ts'     => $r->created_at->timestamp,
             ]);
@@ -84,7 +84,7 @@ class DashboardController extends Controller
                 'doc'    => $r->gi_number,
                 'items'  => $r->items_count,
                 'status' => $r->status,
-                'route'  => route('gi.show', $r->id),
+                'route'  => '/goods-issues/' . $r->id,
                 'date'   => $r->created_at->toISOString(),
                 'ts'     => $r->created_at->timestamp,
             ]);
@@ -277,8 +277,8 @@ class DashboardController extends Controller
                 'week'  => [Carbon::now()->subWeeks($i)->startOfWeek(), Carbon::now()->subWeeks($i)->endOfWeek()],
                 'month' => [Carbon::now()->subMonths($i)->startOfMonth(),Carbon::now()->subMonths($i)->endOfMonth()],
             };
-            $gr[] = GoodsReceipt::whereBetween('created_at', [$start, $end])->count();
-            $gi[] = GoodsIssue::whereBetween('created_at',   [$start, $end])->count();
+            $gr[] = GoodsReceipt::where('status', 'completed')->whereBetween('updated_at', [$start, $end])->count();
+            $gi[] = GoodsIssue::where('status', 'completed')->whereBetween('updated_at',   [$start, $end])->count();
         }
 
         return ['gr' => $gr, 'gi' => $gi];

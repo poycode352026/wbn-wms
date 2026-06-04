@@ -386,7 +386,6 @@ function deletePhoto(photoId) {
 
     <!-- Action: Submit (draft) -->
     <div v-if="canSubmit" class="sh-action-panel sh-action-submit">
-      <div class="sh-action-icon">📤</div>
       <div class="sh-action-content">
         <div class="sh-action-title">Submit for Approval</div>
         <div class="sh-action-sub">Submit to your department manager for review. Stock will be reserved.</div>
@@ -398,11 +397,6 @@ function deletePhoto(photoId) {
 
     <!-- Action: Approve / Reject -->
     <div v-if="canApprove && !showRejectPanel" class="sh-action-panel sh-action-approve">
-      <div class="sh-action-icon">
-        <span v-if="canApproveManagerDept">👔</span>
-        <span v-else-if="canApproveSupervisor">🔵</span>
-        <span v-else>🏭</span>
-      </div>
       <div class="sh-action-content">
         <div class="sh-action-title">
           <span v-if="canApproveManagerDept">Dept Manager Review</span>
@@ -436,7 +430,6 @@ function deletePhoto(photoId) {
 
     <!-- Action: Assign Operator (wh_admin, approved) -->
     <div v-if="canAssign" class="sh-action-panel sh-action-assign">
-      <div class="sh-action-icon">👷</div>
       <div class="sh-action-content">
         <div class="sh-action-title">{{ $t('gi.assignOperatorTitle') }}</div>
         <div class="sh-action-sub">{{ $t('gi.assignOperatorSub') }}</div>
@@ -494,7 +487,6 @@ function deletePhoto(photoId) {
 
     <!-- Action: Self-Assign (operator, approved) -->
     <div v-if="canSelfAssign" class="sh-action-panel sh-action-selfassign">
-      <div class="sh-action-icon">🙋</div>
       <div class="sh-action-content">
         <div class="sh-action-title">{{ $t('gi.selfAssignTitle') }}</div>
         <div class="sh-action-sub">{{ $t('gi.selfAssignSub') }}</div>
@@ -506,7 +498,6 @@ function deletePhoto(photoId) {
 
     <!-- Action: Start Picking (assigned operator) -->
     <div v-if="canStartPicking" class="sh-action-panel sh-action-picking">
-      <div class="sh-action-icon">📦</div>
       <div class="sh-action-content">
         <div class="sh-action-title">{{ $t('gi.startPickingTitle') }}</div>
         <div class="sh-action-sub">{{ $t('gi.startPickingSub') }}</div>

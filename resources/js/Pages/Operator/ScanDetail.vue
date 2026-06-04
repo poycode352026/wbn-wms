@@ -64,7 +64,8 @@ function removePhoto(i) {
 // ── Forms ─────────────────────────────────────────────────────────────────
 const startForm   = useForm({})
 const submitForm  = useForm({})
-const confirmForm = useForm({})
+const confirmForm = useForm({ photos: [] })
+const confirmProcessing = ref(false)
 
 const canSubmit = computed(() =>
     !submitForm.processing &&
@@ -95,9 +96,14 @@ function doSubmitPickup() {
 }
 
 function doConfirmPickup() {
-    confirmForm
-        .transform(() => ({ photos: photoFiles.value }))
-        .post(route('operator.confirm-pickup', props.gi.id), { forceFormData: true })
+    if (confirmProcessing.value || photoFiles.value.length === 0) return
+    confirmProcessing.value = true
+    // Build FormData manually — Inertia useForm doesn't reliably carry File[] through transform()
+    const fd = new FormData()
+    photoFiles.value.forEach(f => fd.append('photos[]', f))
+    router.post(route('operator.confirm-pickup', props.gi.id), fd, {
+        onFinish: () => { confirmProcessing.value = false },
+    })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -151,7 +157,6 @@ function fmtQty(val) {
     <!-- STATE 1: ASSIGNED — belum mulai picking                     -->
     <!-- ════════════════════════════════════════════════════════════ -->
     <div v-if="gi?.status === 'assigned'" class="pk-state-card pk-state-assigned">
-      <div class="pk-state-icon">📋</div>
       <div class="pk-state-title">{{ $t('operator.assignedTitle') }}</div>
       <div class="pk-state-desc">{{ $t('operator.assignedDesc') }}</div>
 
@@ -174,7 +179,6 @@ function fmtQty(val) {
           stroke-linejoin="round" width="18" height="18">
           <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg>
-        <span v-else>⚡</span>
         {{ startForm.processing ? $t('operator.startingBtn') : $t('operator.startBtn') }}
       </button>
     </div>
@@ -317,7 +321,6 @@ function fmtQty(val) {
     <!-- STATE 3: READY_TO_PICKUP — item summary + foto + konfirmasi -->
     <!-- ════════════════════════════════════════════════════════════ -->
     <div v-else-if="gi?.status === 'ready_to_pickup'" class="pk-state-card pk-state-ready">
-      <div class="pk-state-icon">✅</div>
       <div class="pk-state-title">{{ $t('operator.readyTitle') }}</div>
       <div class="pk-state-desc">{{ $t('operator.readyDesc') }}</div>
 
@@ -334,7 +337,7 @@ function fmtQty(val) {
       <!-- Photo upload — wajib -->
       <div class="pk-photo-section">
         <div class="pk-photo-title">
-          📷 {{ $t('operator.photoTitle') }} <span class="pk-req">*</span>
+          {{ $t('operator.photoTitle') }} <span class="pk-req">*</span>
         </div>
 
         <div class="pk-photo-btns">
@@ -369,23 +372,22 @@ function fmtQty(val) {
         </div>
 
         <div v-if="photoFiles.length === 0" class="pk-warn">
-          📷 {{ $t('operator.photoRequiredWarn') }}
+          {{ $t('operator.photoRequiredWarn') }}
         </div>
       </div>
 
       <button
         type="button"
         class="pk-action-btn pk-btn-confirm"
-        :disabled="confirmForm.processing || photoFiles.length === 0"
+        :disabled="confirmProcessing || photoFiles.length === 0"
         @click="doConfirmPickup"
       >
-        <svg v-if="confirmForm.processing" class="pk-spin" viewBox="0 0 24 24" fill="none"
+        <svg v-if="confirmProcessing" class="pk-spin" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
           stroke-linejoin="round" width="18" height="18">
           <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg>
-        <span v-else>🤝</span>
-        {{ confirmForm.processing ? $t('operator.processingBtn') : $t('operator.confirmBtn') }}
+        {{ confirmProcessing ? $t('operator.processingBtn') : $t('operator.confirmBtn') }}
       </button>
 
       <p class="pk-confirm-hint">{{ $t('operator.confirmHint') }}</p>
@@ -395,7 +397,6 @@ function fmtQty(val) {
     <!-- STATE 4: COMPLETED / other                                  -->
     <!-- ════════════════════════════════════════════════════════════ -->
     <div v-else class="pk-state-card pk-state-done">
-      <div class="pk-state-icon">🎉</div>
       <div class="pk-state-title">{{ $t('operator.completedTitle') }}</div>
       <div class="pk-state-desc">{{ $t('operator.completedDesc') }}</div>
       <Link :href="route('operator.scan-list')" class="pk-action-btn pk-btn-back-list">

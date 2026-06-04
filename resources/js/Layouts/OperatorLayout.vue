@@ -117,18 +117,15 @@ function isActive(path) {
         <span>{{ $t('operator.navJobs') }}</span>
       </a>
 
-      <!-- Scan / active picking (center floating) -->
-      <a :href="route('operator.scan-list')"
+      <!-- Scan / active picking (center floating) — opens camera on scan-list page -->
+      <a :href="route('operator.scan-list') + '?camera=1'"
          class="op-nav-tab op-scan-tab"
          :class="{ active: isActive('/operator/scan/') }">
         <div class="op-scan-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             width="24" height="24" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
-            <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
-            <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-            <rect x="7" y="7" width="10" height="10" rx="1"/>
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
           </svg>
         </div>
         <span>{{ $t('operator.navScan') }}</span>

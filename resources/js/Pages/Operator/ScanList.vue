@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import OperatorLayout from '@/Layouts/OperatorLayout.vue'
@@ -91,6 +91,17 @@ function closeCamera() {
     }
     cameraOpen.value = false
 }
+
+onMounted(() => {
+    // Auto-open camera if navigated from Scan button (?camera=1)
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('camera') === '1' && hasBarcodeDetector) {
+        openCamera()
+        // Clean up URL param without reload
+        url.searchParams.delete('camera')
+        history.replaceState(null, '', url.toString())
+    }
+})
 
 onUnmounted(closeCamera)
 
