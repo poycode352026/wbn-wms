@@ -27,16 +27,19 @@ class NotificationService
     }
 
     /**
-     * Send a notification to all active users with a given role.
+     * Send a notification to all active users with one or more roles.
+     *
+     * @param string|array $role  One role string or an array of roles
      */
     public static function sendToRole(
-        string $role,
-        string $type,
-        string $title,
-        string $message,
-        array  $data = []
+        string|array $role,
+        string       $type,
+        string       $title,
+        string       $message,
+        array        $data = []
     ): void {
-        User::where('role', $role)
+        $roles = (array) $role;
+        User::whereIn('role', $roles)
             ->where('is_active', true)
             ->pluck('id')
             ->each(fn ($uid) => static::send($uid, $type, $title, $message, $data));

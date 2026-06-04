@@ -7,6 +7,7 @@ use App\Models\EmployeeRequest;
 use App\Models\GoodsIssue;
 use App\Models\GoodsIssueItem;
 use App\Models\GoodsIssuePhoto;
+use App\Models\GoodsReceipt;
 use App\Models\StockLedger;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -40,8 +41,18 @@ class OperatorController extends Controller
             ->latest()
             ->get();
 
+        // Also fetch GRs assigned to this operator (status: assigned = waiting inspection)
+        $grs = GoodsReceipt::query()
+            ->with(['warehouse:id,code,name'])
+            ->withCount('items')
+            ->where('assigned_to', $user->id)
+            ->where('status', 'assigned')
+            ->latest()
+            ->get();
+
         return Inertia::render('Operator/ScanList', [
             'gis' => $gis->values(),
+            'grs' => $grs->values(),
         ]);
     }
 

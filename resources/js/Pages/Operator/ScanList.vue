@@ -8,6 +8,7 @@ const { t, locale } = useI18n()
 
 const props = defineProps({
     gis: Array,
+    grs: { type: Array, default: () => [] },
 })
 
 const searchQuery = ref('')
@@ -24,22 +25,44 @@ const filteredGis = computed(() => {
     )
 })
 
+// ── Filter GR by search ────────────────────────────────────────────────────
+const filteredGrs = computed(() => {
+    if (!searchQuery.value.trim()) return props.grs ?? []
+    const q = searchQuery.value.toLowerCase()
+    return (props.grs ?? []).filter(gr =>
+        gr.gr_number.toLowerCase().includes(q) ||
+        gr.warehouse?.name?.toLowerCase().includes(q) ||
+        gr.warehouse?.code?.toLowerCase().includes(q)
+    )
+})
+
+const hasAny = computed(() => filteredGis.value.length > 0 || filteredGrs.value.length > 0)
+
+// ── Navigate by barcode (handles both GI and GR codes) ────────────────────
+function navigate(barcode) {
+    const gi = (props.gis ?? []).find(g => g.gi_number === barcode)
+    if (gi) {
+        router.visit(route('operator.scan-detail', gi.id))
+        return
+    }
+    const gr = (props.grs ?? []).find(g => g.gr_number === barcode)
+    if (gr) {
+        router.visit(route('gr.show', gr.id))
+        return
+    }
+    alert(`"${barcode}" tidak ditemukan atau tidak di-assign ke Anda`)
+}
+
 // ── Text barcode scan (hardware scanner → Enter) ───────────────────────────
 function handleScan() {
     const barcode = scanInput.value.trim()
     if (!barcode) return
-    navigateToGI(barcode)
+    navigate(barcode)
     scanInput.value = ''
 }
 
-function navigateToGI(barcode) {
-    const gi = (props.gis ?? []).find(g => g.gi_number === barcode)
-    if (gi) {
-        router.visit(route('operator.scan-detail', gi.id))
-    } else {
-        alert(`GI "${barcode}" tidak ditemukan atau tidak di-assign ke Anda`)
-    }
-}
+// kept for camera QR scan backward compat
+function navigateToGI(barcode) { navigate(barcode) }
 
 // ── Camera QR Scan (BarcodeDetector API) ──────────────────────────────────
 const cameraOpen   = ref(false)
@@ -168,29 +191,54 @@ function itemName(variant) {
       />
     </div>
 
-    <!-- GI List -->
-    <div v-if="filteredGis.length" class="op-list">
-      <div v-for="gi in filteredGis" :key="gi.id" class="op-list-item">
-        <Link :href="route('operator.scan-detail', gi.id)" class="op-item-link">
-          <div class="op-item-header">
-            <span class="op-gi-number">{{ gi.gi_number }}</span>
-            <span class="op-item-count">{{ gi.items_count }} {{ $t('operator.items') }}</span>
-          </div>
-          <div class="op-item-details">
-            <span class="op-dept">{{ gi.department?.name }}</span>
-            <span class="op-purpose">{{ gi.purpose }}</span>
-          </div>
-          <div class="op-item-footer">
-            <span class="op-status-badge" :class="`op-status-${gi.status}`">
-              {{ $t(`gi.status.${gi.status}`) }}
-            </span>
-          </div>
-        </Link>
+    <!-- ── Goods Issue List ─────────────────────────────────────────────────── -->
+    <div v-if="filteredGis.length">
+      <div class="op-section-hdr">📦 Goods Issue</div>
+      <div class="op-list">
+        <div v-for="gi in filteredGis" :key="gi.id" class="op-list-item">
+          <Link :href="route('operator.scan-detail', gi.id)" class="op-item-link">
+            <div class="op-item-header">
+              <span class="op-gi-number">{{ gi.gi_number }}</span>
+              <span class="op-item-count">{{ gi.items_count }} {{ $t('operator.items') }}</span>
+            </div>
+            <div class="op-item-details">
+              <span class="op-dept">{{ gi.department?.name }}</span>
+              <span class="op-purpose">{{ gi.purpose }}</span>
+            </div>
+            <div class="op-item-footer">
+              <span class="op-status-badge" :class="`op-status-${gi.status}`">
+                {{ $t(`gi.status.${gi.status}`) }}
+              </span>
+            </div>
+          </Link>
+        </div>
       </div>
     </div>
 
-    <!-- Empty state -->
-    <div v-else class="op-empty">
+    <!-- ── Goods Receipt List ────────────────────────────────────────────────── -->
+    <div v-if="filteredGrs.length">
+      <div class="op-section-hdr">📥 Goods Receipt</div>
+      <div class="op-list">
+        <div v-for="gr in filteredGrs" :key="'gr-'+gr.id" class="op-list-item op-list-item-gr">
+          <Link :href="route('gr.show', gr.id)" class="op-item-link">
+            <div class="op-item-header">
+              <span class="op-gi-number">{{ gr.gr_number }}</span>
+              <span class="op-item-count">{{ gr.items_count }} {{ $t('operator.items') }}</span>
+            </div>
+            <div class="op-item-details">
+              <span class="op-dept">{{ gr.warehouse?.code }} · {{ gr.warehouse?.name }}</span>
+              <span class="op-purpose op-gr-hint">Tap untuk mulai inspeksi</span>
+            </div>
+            <div class="op-item-footer">
+              <span class="op-status-badge op-status-gr-assigned">📥 GR · Menunggu Inspeksi</span>
+            </div>
+          </Link>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state: shown only when both GI and GR lists are empty -->
+    <div v-if="!hasAny" class="op-empty">
       <div class="op-empty-icon">📭</div>
       <div class="op-empty-text">{{ $t('operator.noGi') }}</div>
     </div>
@@ -432,6 +480,28 @@ function itemName(variant) {
 .op-dept    { font-size: 12px; font-weight: 600; color: var(--fg-2); }
 .op-purpose { font-size: 13px; color: var(--fg); line-height: 1.4; word-break: break-word; }
 
+/* Section header */
+.op-section-hdr {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-dim);
+  padding: 4px 2px;
+  margin-top: 4px;
+}
+
+.op-gr-hint {
+  color: var(--fg-dim);
+  font-style: italic;
+}
+
+.op-list-item-gr { border-color: rgba(59,130,246,.3); }
+.op-list-item-gr:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
 .op-item-footer { display: flex; align-items: center; gap: 6px; }
 
 .op-status-badge {
@@ -448,6 +518,7 @@ function itemName(variant) {
 .op-status-in_picking     { background: rgba(249,115,22,.15);  color:var(--orange-500); }
 .op-status-ready_to_pickup{ background: rgba(34,197,94,.15);   color:#22c55e; }
 .op-status-completed      { background: rgba(107,114,128,.1);  color:#6b7280; }
+.op-status-gr-assigned    { background: rgba(59,130,246,.15);  color:#3b82f6; }
 
 .op-empty {
   display: flex;

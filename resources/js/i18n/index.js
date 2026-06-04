@@ -652,6 +652,7 @@ const messages = {
             cond_other:         'Other',
             condNotes:          'Condition Notes',
             condNotesPh:        'Describe any damage or issue…',
+            condNotesShortPh:   'Explain why actual qty is less than expected…',
             photoUpload:        'Upload Photos (optional)',
             photoGallery:       'Photos',
             // ── status badge labels ───────────────────────────────────────
@@ -1695,6 +1696,7 @@ const messages = {
             cond_other:         '其他',
             condNotes:          '状况备注',
             condNotesPh:        '描述损坏或问题…',
+            condNotesShortPh:   '解释为何实际数量少于预期…',
             photoUpload:        '上传照片（可选）',
             photoGallery:       '照片',
             // ── 状态标签 ──────────────────────────────────────────────────
@@ -2721,6 +2723,7 @@ const messages = {
             cond_other:         'Lainnya',
             condNotes:          'Catatan Kondisi',
             condNotesPh:        'Deskripsikan kerusakan atau masalah…',
+            condNotesShortPh:   'Jelaskan mengapa qty aktual kurang dari yang diharapkan…',
             photoUpload:        'Upload Foto (opsional)',
             photoGallery:       'Foto',
             // ── label status badge ────────────────────────────────────────

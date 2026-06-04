@@ -452,6 +452,20 @@ class GoodsReceiptController extends Controller
             'photos.*'                => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
+        // Extra: condition_notes wajib jika actual_qty < expected_qty
+        $gr->load('items:id,goods_receipt_id,expected_qty');
+        $itemExpMap = $gr->items->pluck('expected_qty', 'id');
+
+        foreach ($data['items'] as $itemData) {
+            $expected = (float) ($itemExpMap[$itemData['id']] ?? 0);
+            $actual   = (float) $itemData['actual_qty'];
+            if ($actual < $expected && empty(trim($itemData['condition_notes'] ?? ''))) {
+                return back()
+                    ->with('error', 'Catatan kondisi wajib diisi untuk item yang qty aktualnya kurang dari qty yang diharapkan.')
+                    ->withInput();
+            }
+        }
+
         DB::transaction(function () use ($gr, $data, $user) {
             foreach ($data['items'] as $itemData) {
                 $item = GoodsReceiptItem::where('id', $itemData['id'])
@@ -485,15 +499,25 @@ class GoodsReceiptController extends Controller
             }
         }
 
-        // Notify supervisor to review and approve
-        $inspectorName = $user->name;
+        // Notify wh_supervisor + super_admin to review and approve
         NotificationService::sendToRole(
             ['wh_supervisor', 'super_admin'],
             'gr_inspected',
             "Inspection Done — {$gr->gr_number}",
-            "GR {$gr->gr_number} physical inspection completed by {$inspectorName}. Awaiting your approval.",
+            "GR {$gr->gr_number} physical inspection completed by {$user->name}. Awaiting your approval.",
             ['gr_id' => $gr->id, 'gr_number' => $gr->gr_number, 'route' => 'gr.show']
         );
+
+        // Also notify the GR creator (procurement_admin) that inspection is done
+        if ($gr->created_by && $gr->created_by !== $user->id) {
+            NotificationService::send(
+                $gr->created_by,
+                'gr_inspected',
+                "Inspection Done — {$gr->gr_number}",
+                "GR {$gr->gr_number} has been inspected and is awaiting supervisor approval.",
+                ['gr_id' => $gr->id, 'gr_number' => $gr->gr_number, 'route' => 'gr.show']
+            );
+        }
 
         return redirect()->route('gr.show', $gr)
             ->with('success', "Inspeksi GR {$gr->gr_number} berhasil disubmit. Menunggu approval supervisor.");
@@ -543,15 +567,39 @@ class GoodsReceiptController extends Controller
             ]);
         });
 
-        // Notify wh_manager (and super_admin) that stock has been updated
+        // Notify wh_manager + super_admin that stock has been updated
         $approvedBy = $autoApproved ? 'system (auto-approved)' : ($approver?->name ?? 'wh_supervisor');
+        $notifData  = ['gr_id' => $gr->id, 'gr_number' => $gr->gr_number, 'route' => 'gr.show'];
+
         NotificationService::sendToRole(
             ['wh_manager', 'super_admin'],
             'gr_completed',
             "GR Completed — {$gr->gr_number}",
-            "GR {$gr->gr_number} has been approved by {$approvedBy}. Stock has been updated.",
-            ['gr_id' => $gr->id, 'gr_number' => $gr->gr_number, 'route' => 'gr.show']
+            "GR {$gr->gr_number} approved by {$approvedBy}. Stock updated.",
+            $notifData
         );
+
+        // Notify GR creator (procurement_admin / wh_admin) that their receipt is complete
+        if ($gr->created_by) {
+            NotificationService::send(
+                $gr->created_by,
+                'gr_completed',
+                "GR Completed — {$gr->gr_number}",
+                "GR {$gr->gr_number} has been approved by {$approvedBy}. Stock has been updated.",
+                $notifData
+            );
+        }
+
+        // Notify the operator who did the inspection
+        if ($gr->inspected_by && $gr->inspected_by !== $gr->created_by) {
+            NotificationService::send(
+                $gr->inspected_by,
+                'gr_completed',
+                "GR Completed — {$gr->gr_number}",
+                "GR {$gr->gr_number} you inspected has been approved. Stock updated.",
+                $notifData
+            );
+        }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

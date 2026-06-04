@@ -213,13 +213,27 @@ const COND_STYLES = {
 }
 function condStyle(c) { return COND_STYLES[c] ?? COND_STYLES.other }
 
+// Returns true if this item has actual_qty < expected_qty (qty shortage)
+function itemQtyShort(idx) {
+    const inspItem = inspectItems.value[idx]
+    if (!inspItem || inspItem.actual_qty === '' || isNaN(parseFloat(inspItem.actual_qty))) return false
+    const expected = props.gr.items[idx]?.expected_qty ?? 0
+    return parseFloat(inspItem.actual_qty) < expected
+}
+
+// Submit is only valid when: all items have qty filled, and shortfall items have notes
+const canSubmitInspect = computed(() =>
+    inspectItems.value.every((inspItem, idx) => {
+        if (inspItem.actual_qty === '' || isNaN(parseFloat(inspItem.actual_qty))) return false
+        if (itemQtyShort(idx) && !inspItem.condition_notes?.trim()) return false
+        return true
+    })
+)
+
 const inspectProcessing = ref(false)
 
 function submitInspect() {
-    const validItems = inspectItems.value.filter(i =>
-        i.actual_qty !== '' && !isNaN(parseFloat(i.actual_qty))
-    )
-    if (!validItems.length) return
+    if (!canSubmitInspect.value) return
 
     inspectProcessing.value = true
     const fd = new FormData()
@@ -740,10 +754,24 @@ function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx
             </div>
           </div>
 
-          <!-- Condition notes (if not good) -->
-          <div class="sh-iifg sh-iifg-full" v-if="inspItem.condition && inspItem.condition !== 'good'">
-            <label class="sh-iilbl">{{ $t('gr.condNotes') }}</label>
-            <input class="sh-iinput" type="text" v-model="inspItem.condition_notes" :placeholder="$t('gr.condNotesPh')" maxlength="500" />
+          <!-- Condition notes (if not good OR qty is short — required when qty < expected) -->
+          <div class="sh-iifg sh-iifg-full"
+               v-if="(inspItem.condition && inspItem.condition !== 'good') || itemQtyShort(idx)">
+            <label class="sh-iilbl">
+              {{ $t('gr.condNotes') }}
+              <span v-if="itemQtyShort(idx)" class="cr-req">*</span>
+            </label>
+            <input
+              class="sh-iinput"
+              :class="{ 'sh-iinput-warn': itemQtyShort(idx) && !inspItem.condition_notes?.trim() }"
+              type="text"
+              v-model="inspItem.condition_notes"
+              :placeholder="itemQtyShort(idx) ? $t('gr.condNotesShortPh') : $t('gr.condNotesPh')"
+              maxlength="500"
+            />
+            <div v-if="itemQtyShort(idx) && !inspItem.condition_notes?.trim()" class="sh-qty-warn-msg">
+              ⚠ Qty aktual kurang dari yang diharapkan — alasan wajib diisi
+            </div>
           </div>
         </div>
       </div>
@@ -766,7 +794,7 @@ function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx
 
     <!-- Submit inspection button -->
     <div class="sh-inspect-footer">
-      <button type="button" class="sh-btn-inspect" :disabled="inspectProcessing" @click="submitInspect">
+      <button type="button" class="sh-btn-inspect" :disabled="inspectProcessing || !canSubmitInspect" @click="submitInspect">
         <svg v-if="inspectProcessing" class="sh-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
         {{ inspectProcessing ? $t('gr.submitting') : $t('gr.submitInspect') }}
       </button>
@@ -1001,6 +1029,9 @@ function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx
 .sh-iinput { padding:8px 11px; font-size:13px; background:var(--surface-2); border:1px solid var(--border-2); border-radius:7px; color:var(--fg); outline:none; font-family:inherit; transition:border-color 180ms; width:100%; box-sizing:border-box }
 .sh-iinput:focus { border-color:var(--orange-500) }
 .sh-iinput:disabled { opacity:.5 }
+.sh-iinput-warn { border-color:rgba(239,68,68,.5) !important; background:rgba(239,68,68,.05) }
+.sh-iinput-warn:focus { border-color:#f87171 !important }
+.sh-qty-warn-msg { font-size:11.5px; color:#f87171; font-weight:600; display:flex; align-items:center; gap:4px; margin-top:2px }
 .cr-req { color:#f87171 }
 
 .sh-cond-btns { display:flex; gap:5px; flex-wrap:wrap }
