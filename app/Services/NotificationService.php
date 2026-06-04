@@ -59,4 +59,28 @@ class NotificationService
             ->pluck('id')
             ->each(fn ($uid) => static::send($uid, $type, $title, $message, $data));
     }
+
+    /**
+     * Send to all active users with any of the given roles, excluding specific user IDs.
+     *
+     * @param string|array $roles  One or more role strings
+     * @param int|array    $except User ID(s) to exclude
+     */
+    public static function sendToRoleExcept(
+        string|array $roles,
+        int|array    $except,
+        string       $type,
+        string       $title,
+        string       $message,
+        array        $data = []
+    ): void {
+        $roles  = (array) $roles;
+        $except = (array) $except;
+
+        User::whereIn('role', $roles)
+            ->where('is_active', true)
+            ->whereNotIn('id', $except)
+            ->pluck('id')
+            ->each(fn ($uid) => static::send($uid, $type, $title, $message, $data));
+    }
 }

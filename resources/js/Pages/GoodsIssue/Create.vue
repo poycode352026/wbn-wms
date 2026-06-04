@@ -606,6 +606,9 @@ function submit() {
 
           <div class="gi-footer-btns">
             <Link :href="route('gi.index')" class="gi-cancel">{{ $t('btn.cancel') }}</Link>
+            <span v-if="validRows.length > 0" class="gi-item-count-badge">
+              {{ validRows.length }} item
+            </span>
             <button type="submit" class="gi-save" :disabled="!canSubmit || form.processing">
               <svg v-if="form.processing" class="gi-spin" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
@@ -867,6 +870,12 @@ function submit() {
   display:inline-flex; align-items:center; gap:7px;
 }
 .gi-save:disabled { opacity:.55; cursor:default }
+.gi-item-count-badge {
+  font-size:12px; font-weight:700;
+  padding:4px 10px; border-radius:20px;
+  background:rgba(16,185,129,.12); color:#10b981;
+  white-space:nowrap;
+}
 
 /* photo upload */
 .gi-photo-upload-area { display:flex; flex-direction:column; gap:6px }

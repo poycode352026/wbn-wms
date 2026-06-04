@@ -32,11 +32,6 @@ watch([search, statusF, warehouseF], () => {
 
 const canCreate = ['admin_dept', 'super_admin'].includes(props.userRole)
 
-function deleteGI(gi) {
-    if (!confirm(`Hapus ${gi.gi_number}? Tindakan ini tidak bisa dibatalkan.`)) return
-    router.delete(route('gi.destroy', gi.id), { preserveScroll: true })
-}
-
 const STATUS_MAP = {
     draft:               { lbl: 'Draft',          bg:'rgba(100,116,139,.15)', col:'#94a3b8' },
     pending_manager_dept:{ lbl: 'Mgr Dept',       bg:'rgba(59,130,246,.15)',  col:'#60a5fa' },
@@ -157,19 +152,6 @@ const STAT_CARDS = [
                 <Link :href="route('gi.show', gi.id)" class="gi-view-btn">
                   {{ $t('gi.view') }}
                 </Link>
-                <button
-                  v-if="gi.status === 'draft' && (userRole === 'super_admin' || gi.requested_by?.id === $page.props.auth?.user?.id)"
-                  type="button"
-                  class="gi-del-btn"
-                  @click="deleteGI(gi)"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                    <path d="M10 11v6"/><path d="M14 11v6"/>
-                    <path d="M9 6V4h6v2"/>
-                  </svg>
-                </button>
               </div>
             </td>
           </tr>
@@ -254,14 +236,6 @@ const STAT_CARDS = [
 }
 .gi-view-btn:hover { background:var(--hover); color:var(--fg) }
 .gi-actions-cell { display:flex; align-items:center; gap:6px; justify-content:center }
-.gi-del-btn {
-  display:inline-flex; align-items:center; justify-content:center;
-  width:28px; height:28px; border-radius:6px;
-  background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.2);
-  color:#f87171; cursor:pointer; transition:background 150ms;
-  flex-shrink:0;
-}
-.gi-del-btn:hover { background:rgba(239,68,68,.2); }
 
 /* ── pagination ─────────────────────────────────────────────────────── */
 .gi-pager { display:flex; align-items:center; justify-content:center; gap:12px }

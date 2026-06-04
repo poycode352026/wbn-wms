@@ -20,6 +20,9 @@ class DashboardController extends Controller
 {
     public function index(): Response
     {
+        $user = auth()->user();
+        $role = $user->role;
+
         // ── Stat cards ─────────────────────────────────────────────────────────
         $totalItems      = Item::where('is_active', true)->count();
         $totalVariants   = ItemVariant::count();
@@ -58,41 +61,60 @@ class DashboardController extends Controller
             '90' => $this->buildChart('month', 3),
         ];
 
-        // ── Recent transactions (GR + GI mixed, latest 10 — completed only) ────
-        $recentGR = GoodsReceipt::where('status', 'completed')
-            ->withCount('items')
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get(['id', 'gr_number', 'status', 'created_at'])
-            ->map(fn($r) => [
-                'type'   => 'GR',
-                'doc'    => $r->gr_number,
-                'items'  => $r->items_count,
-                'status' => $r->status,
-                'route'  => '/goods-receipts/' . $r->id,
-                'date'   => $r->created_at->toISOString(),
-                'ts'     => $r->created_at->timestamp,
-            ]);
+        // ── Recent transactions ────────────────────────────────────────────────
+        // admin_dept: all statuses of their dept's GIs (most recent first)
+        // other roles: completed GR + GI only
+        if ($role === 'admin_dept' && $user->department_id) {
+            $recentTx = GoodsIssue::where('department_id', $user->department_id)
+                ->withCount('items')
+                ->orderByDesc('updated_at')
+                ->limit(10)
+                ->get(['id', 'gi_number', 'status', 'updated_at'])
+                ->map(fn($r) => [
+                    'type'   => 'GI',
+                    'doc'    => $r->gi_number,
+                    'items'  => $r->items_count,
+                    'status' => $r->status,
+                    'route'  => '/goods-issues/' . $r->id,
+                    'date'   => $r->updated_at->toISOString(),
+                    'ts'     => $r->updated_at->timestamp,
+                ])->values();
+        } else {
+            $recentGR = GoodsReceipt::where('status', 'completed')
+                ->withCount('items')
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get(['id', 'gr_number', 'status', 'created_at'])
+                ->map(fn($r) => [
+                    'type'   => 'GR',
+                    'doc'    => $r->gr_number,
+                    'items'  => $r->items_count,
+                    'status' => $r->status,
+                    'route'  => '/goods-receipts/' . $r->id,
+                    'date'   => $r->created_at->toISOString(),
+                    'ts'     => $r->created_at->timestamp,
+                ]);
 
-        $recentGI = GoodsIssue::where('status', 'completed')
-            ->withCount('items')
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get(['id', 'gi_number', 'status', 'created_at'])
-            ->map(fn($r) => [
-                'type'   => 'GI',
-                'doc'    => $r->gi_number,
-                'items'  => $r->items_count,
-                'status' => $r->status,
-                'route'  => '/goods-issues/' . $r->id,
-                'date'   => $r->created_at->toISOString(),
-                'ts'     => $r->created_at->timestamp,
-            ]);
+            $recentGI = GoodsIssue::where('status', 'completed')
+                ->withCount('items')
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get(['id', 'gi_number', 'status', 'created_at'])
+                ->map(fn($r) => [
+                    'type'   => 'GI',
+                    'doc'    => $r->gi_number,
+                    'items'  => $r->items_count,
+                    'status' => $r->status,
+                    'route'  => '/goods-issues/' . $r->id,
+                    'date'   => $r->created_at->toISOString(),
+                    'ts'     => $r->created_at->timestamp,
+                ]);
 
-        $recentTx = $recentGR->concat($recentGI)
-            ->sortByDesc('ts')
-            ->take(10)
-            ->values();
+            $recentTx = $recentGR->concat($recentGI)
+                ->sortByDesc('ts')
+                ->take(10)
+                ->values();
+        }
 
         // ── Low stock items — per variant ──────────────────────────────────────
         $lowStockItems = [];
@@ -137,8 +159,6 @@ class DashboardController extends Controller
             ->values();
 
         // ── Mandatory Distribution Overdue ────────────────────────────────────
-        $user   = auth()->user();
-        $role   = $user->role;
         $deptId = in_array($role, ['admin_dept', 'manager_dept']) ? $user->department_id : null;
         $showMandatory = in_array($role, ['super_admin', 'wh_admin', 'admin_dept', 'manager_dept', 'wh_manager']);
         $mandatoryOverdue = $showMandatory ? $this->getMandatoryOverdue($deptId) : null;

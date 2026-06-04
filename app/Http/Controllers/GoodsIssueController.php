@@ -219,7 +219,7 @@ class GoodsIssueController extends Controller
             'items.*.base_qty'         => ['required', 'numeric', 'min:0.01'],
             'items.*.lv_id'            => ['nullable', 'exists:vehicles,id'],
             'items.*.employee_id'      => ['nullable', 'exists:employees,id'],
-            'items.*.store_to'         => ['required', 'string', 'max:255'],
+            'items.*.store_to'         => ['nullable', 'string', 'max:255'],
             'items.*.item_reason'      => ['nullable', 'string', 'max:1000'],
             'items.*.notes'            => ['nullable', 'string', 'max:500'],
             'items.*.item_warehouse_id'=> ['nullable', 'exists:warehouses,id'],
@@ -883,6 +883,11 @@ class GoodsIssueController extends Controller
 
         if (!$gi) {
             abort(404);
+        }
+
+        // Nobody can delete photos from a completed GI
+        if ($gi->status === 'completed') {
+            return back()->with('error', 'Foto tidak bisa dihapus dari GI yang sudah selesai.');
         }
 
         // Allow: super_admin always, admin_dept only for their own GI in draft/pending states

@@ -174,14 +174,12 @@ function downloadQR() {
 
 const submitting = ref(false)
 function submitGI() {
-    if (!confirm(t('gi.confirmSubmit'))) return
     submitting.value = true
     router.post(route('gi.submit', props.gi.id), {}, { onFinish: () => { submitting.value = false } })
 }
 
 const approving = ref(false)
 function approveGI() {
-    if (!confirm('Approve this Goods Issue?')) return
     approving.value = true
     router.post(route('gi.approve', props.gi.id), {}, { onFinish: () => { approving.value = false } })
 }
@@ -312,8 +310,9 @@ const lightboxSrc = ref(null)
 function openLightbox(path) { lightboxSrc.value = storageUrl(path) }
 function closeLightbox()    { lightboxSrc.value = null }
 
-// Can delete photos if admin_dept (own GI, draft/pending) or super_admin
+// Can delete photos — nobody can delete once GI is completed
 const canDeletePhoto = computed(() => {
+    if (props.gi.status === 'completed') return false
     if (props.userRole === 'super_admin') return true
     if (props.userRole === 'admin_dept') {
         return props.gi.requested_by?.id === props.userId
@@ -325,6 +324,16 @@ const canDeletePhoto = computed(() => {
 function deletePhoto(photoId) {
     if (!confirm('Hapus foto ini?')) return
     router.delete(route('gi.photos.destroy', photoId), { preserveScroll: true })
+}
+
+// Delete draft GI
+const deleting = ref(false)
+function deleteGI() {
+    if (!confirm(`Hapus ${props.gi.gi_number}? Tindakan ini tidak bisa dibatalkan.`)) return
+    deleting.value = true
+    router.delete(route('gi.destroy', props.gi.id), {
+        onFinish: () => { deleting.value = false },
+    })
 }
 </script>
 <template>
@@ -348,6 +357,23 @@ function deletePhoto(photoId) {
         <div class="sh-gi-number">{{ gi.gi_number }}</div>
         <span class="sh-status-badge" :style="statusStyle(gi.status)">{{ statusLabel(gi.status) }}</span>
         <span v-if="gi.department" class="sh-dept-chip">{{ gi.department.code }}</span>
+        <!-- Delete button — only for draft GI, only requester or super_admin -->
+        <button
+          v-if="gi.status === 'draft' && (userRole === 'super_admin' || gi.requested_by?.id === userId)"
+          type="button"
+          class="sh-delete-gi-btn"
+          :disabled="deleting"
+          @click="deleteGI"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14H6L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/>
+            <path d="M9 6V4h6v2"/>
+          </svg>
+          {{ deleting ? '…' : 'Hapus GI' }}
+        </button>
       </div>
       <div class="sh-header-meta">
         <span class="sh-meta-item">
@@ -949,6 +975,9 @@ function deletePhoto(photoId) {
 .sh-gi-number   { font-family:monospace; font-size:20px; font-weight:800; color:var(--fg); letter-spacing:-.01em }
 .sh-status-badge { display:inline-flex; padding:4px 12px; border-radius:8px; font-size:12px; font-weight:700 }
 .sh-dept-chip   { display:inline-flex; padding:3px 9px; border-radius:6px; font-size:11px; font-weight:700; background:rgba(59,130,246,.1); color:#60a5fa }
+.sh-delete-gi-btn { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:7px; border:1px solid rgba(239,68,68,.4); background:rgba(239,68,68,.07); color:#ef4444; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:background 150ms; }
+.sh-delete-gi-btn:hover:not(:disabled) { background:rgba(239,68,68,.14); }
+.sh-delete-gi-btn:disabled { opacity:.45; cursor:not-allowed; }
 .sh-header-meta { display:flex; flex-wrap:wrap; gap:14px; align-items:center }
 .sh-meta-item   { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--fg-dim) }
 
