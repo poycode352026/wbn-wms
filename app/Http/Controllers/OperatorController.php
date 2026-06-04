@@ -311,7 +311,7 @@ class OperatorController extends Controller
             ->with(['department:id,name,code', 'warehouse:id,code,name'])
             ->withCount('items')
             ->where(fn ($q) => $q->where('assigned_to', $user->id)->orWhere('picked_by', $user->id))
-            ->where('status', 'completed')
+            ->whereIn('status', ['completed', 'rejected'])
             ->latest('updated_at')
             ->paginate(20);
 
