@@ -27,6 +27,12 @@ function itemName(variant) {
     return item.name_en ?? '—'
 }
 
+function fmtDateOnly(iso) {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleDateString(locale.value === 'id' ? 'id-ID' : 'en-US', {
+        day: '2-digit', month: 'short', year: 'numeric',
+    })
+}
 function fmtDate(iso) {
     if (!iso) return '—'
     return new Date(iso).toLocaleString(locale.value === 'id' ? 'id-ID' : 'en-US', {
@@ -245,6 +251,18 @@ const pickingRows = ref(
 const pickingPhotoFiles    = ref([])
 const pickingPhotoPreviews = ref([])
 const submittingPick       = ref(false)
+
+// All items must have qty > 0 (if ready) OR notes filled (if rejected)
+const canSubmitPicking = computed(() =>
+    !submittingPick.value &&
+    pickingRows.value.length > 0 &&
+    pickingRows.value.every(row => {
+        if (row.status === 'rejected') {
+            return (row.notes ?? '').trim().length > 0
+        }
+        return parseFloat(row.actual_qty ?? 0) > 0
+    })
+)
 
 function onPickPhotoChange(e) {
     const files = Array.from(e.target.files)
@@ -589,7 +607,10 @@ function deletePhoto(photoId) {
       </div>
 
       <div class="sh-pick-submit-row">
-        <button class="sh-btn-primary" :disabled="submittingPick" @click="submitPicking">
+        <div v-if="!canSubmitPicking && !submittingPick" class="sh-pick-submit-hint">
+          ⚠ Semua item harus diisi qty (Ready) atau diberi catatan (Rejected)
+        </div>
+        <button class="sh-btn-primary" :disabled="!canSubmitPicking" @click="submitPicking">
           {{ submittingPick ? '…' : $t('gi.submitPickingBtn') }}
         </button>
       </div>
@@ -786,7 +807,7 @@ function deletePhoto(photoId) {
                       🏭 {{ item.itemWarehouse?.code ?? '—' }}
                     </div>
                     <div v-if="item.cooldown_until" class="sh-cooldown-chip">
-                      🔒 cooldown until {{ item.cooldown_until }}
+                      🔒 cooldown until {{ fmtDateOnly(item.cooldown_until) }}
                     </div>
                   </td>
                   <td class="tc sh-qty">
@@ -1127,7 +1148,8 @@ function deletePhoto(photoId) {
 .sh-upload-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px; border:1px dashed var(--border-2); cursor:pointer; font-size:12px; font-weight:600; color:var(--fg-dim); background:var(--surface-2); transition:all 150ms; width:fit-content }
 .sh-upload-btn:hover { border-color:rgba(249,115,22,.5); color:#f97316 }
 .hidden-input { display:none }
-.sh-pick-submit-row { display:flex; justify-content:flex-end }
+.sh-pick-submit-row { display:flex; flex-direction:column; align-items:flex-end; gap:8px }
+.sh-pick-submit-hint { font-size:12px; color:#f87171; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); border-radius:8px; padding:6px 12px; width:100%; text-align:center }
 
 /* Barcode card */
 .sh-barcode-card {
