@@ -277,6 +277,7 @@ class GoodsIssueController extends Controller
                 'project'           => $data['project'] ?? null,
                 'business_function' => $data['business_function'] ?? null,
                 'purpose'           => $data['purpose'] ?? null,
+                'usage_location'    => $data['usage_location'] ?? '',
                 'notes'             => $data['notes'] ?? null,
                 'status'         => 'draft',
             ]);
