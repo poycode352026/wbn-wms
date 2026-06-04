@@ -146,7 +146,8 @@ const canPickup = computed(() =>
 const showBarcode = computed(() => props.gi.status === 'ready_to_pickup')
 
 const requestPhotos = computed(() => (props.gi.photos ?? []).filter(p => p.stage === 'request'))
-const pickingPhotos  = computed(() => (props.gi.photos ?? []).filter(p => p.stage === 'picking'))
+const pickingPhotos = computed(() => (props.gi.photos ?? []).filter(p => p.stage === 'picking'))
+const pickupPhotos  = computed(() => (props.gi.photos ?? []).filter(p => p.stage === 'pickup'))
 
 const qrCanvas = ref(null)
 async function renderQR() {
@@ -873,6 +874,33 @@ function deletePhoto(photoId) {
           </div>
         </div>
 
+        <!-- Pickup / Handover photos gallery -->
+        <div v-if="pickupPhotos.length" class="sh-card sh-card-handover">
+          <div class="sh-sec-lbl">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              width="14" height="14" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:4px">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            Foto Bukti Serah Terima
+          </div>
+          <div class="sh-photo-grid">
+            <div v-for="photo in pickupPhotos" :key="photo.id"
+              class="sh-photo-cell" @click="openLightbox(photo.path)">
+              <img :src="storageUrl(photo.path)" :alt="photo.original_name" class="sh-photo-img" />
+              <div class="sh-photo-overlay">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </div>
+              <button v-if="userRole === 'super_admin'" type="button"
+                class="sh-photo-del-btn" @click.stop="deletePhoto(photo.id)"
+                title="Delete photo">×</button>
+            </div>
+          </div>
+          <div v-if="pickupPhotos[0]?.uploader" class="sh-photo-meta">
+            Diserahkan oleh {{ pickupPhotos[0].uploader?.name }}
+            <span v-if="pickupPhotos[0]?.created_at"> · {{ new Date(pickupPhotos[0].created_at).toLocaleString() }}</span>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1118,6 +1146,13 @@ function deletePhoto(photoId) {
   padding:0;
 }
 .sh-photo-cell:hover .sh-photo-del-btn { opacity:1 }
+
+/* Handover card */
+.sh-card-handover {
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.03);
+}
+.sh-card-handover .sh-sec-lbl { color: #16a34a; }
 
 /* Picking card */
 .sh-picking-card {
