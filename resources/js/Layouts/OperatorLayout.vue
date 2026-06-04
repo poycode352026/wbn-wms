@@ -37,6 +37,12 @@ function switchLang(lang) {
 // ── logout ─────────────────────────────────────────────────────────────────
 function logout() { router.post(route('logout')) }
 
+// ── scan button — set flag then navigate so camera opens on scan-list ──────
+function goToScan() {
+    sessionStorage.setItem('open_camera', '1')
+    router.visit(route('operator.scan-list'))
+}
+
 // ── active tab ─────────────────────────────────────────────────────────────
 function isActive(path) {
     const p = window.location.pathname
@@ -117,10 +123,11 @@ function isActive(path) {
         <span>{{ $t('operator.navJobs') }}</span>
       </a>
 
-      <!-- Scan / active picking (center floating) — goes to scan-list, camera opened manually -->
+      <!-- Scan (center floating) — sets sessionStorage flag then navigates to scan-list to open camera -->
       <a :href="route('operator.scan-list')"
          class="op-nav-tab op-scan-tab"
-         :class="{ active: isActive('/operator/scan/') }">
+         :class="{ active: isActive('/operator/scan/') }"
+         @click.prevent="goToScan">
         <div class="op-scan-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             width="24" height="24" stroke-linecap="round" stroke-linejoin="round">
