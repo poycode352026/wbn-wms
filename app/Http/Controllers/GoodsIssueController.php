@@ -847,6 +847,33 @@ class GoodsIssueController extends Controller
         return back()->with('success', "GI {$gi->gi_number} telah selesai. Barang berhasil diambil.");
     }
 
+    // ── Destroy GI (draft only) ────────────────────────────────────────────────
+
+    public function destroy(Request $request, GoodsIssue $gi): RedirectResponse
+    {
+        $this->authorizeRole($request, ['admin_dept', 'super_admin']);
+
+        if ($gi->status !== 'draft') {
+            return back()->with('error', 'Hanya GI berstatus draft yang dapat dihapus.');
+        }
+
+        $user = $request->user();
+        if ($gi->requested_by !== $user->id && $user->role !== 'super_admin') {
+            abort(403);
+        }
+
+        // Delete physical photo files
+        foreach ($gi->photos as $photo) {
+            Storage::disk('public')->delete($photo->path);
+        }
+
+        $giNumber = $gi->gi_number;
+        $gi->delete(); // cascades to items and photos
+
+        return redirect()->route('gi.index')
+            ->with('success', "GI {$giNumber} telah dihapus.");
+    }
+
     // ── Delete Photo ───────────────────────────────────────────────────────────
 
     public function deletePhoto(Request $request, GoodsIssuePhoto $photo): RedirectResponse

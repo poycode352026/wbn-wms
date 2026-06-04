@@ -32,6 +32,11 @@ watch([search, statusF, warehouseF], () => {
 
 const canCreate = ['admin_dept', 'super_admin'].includes(props.userRole)
 
+function deleteGI(gi) {
+    if (!confirm(`Hapus ${gi.gi_number}? Tindakan ini tidak bisa dibatalkan.`)) return
+    router.delete(route('gi.destroy', gi.id), { preserveScroll: true })
+}
+
 const STATUS_MAP = {
     draft:               { lbl: 'Draft',          bg:'rgba(100,116,139,.15)', col:'#94a3b8' },
     pending_manager_dept:{ lbl: 'Mgr Dept',       bg:'rgba(59,130,246,.15)',  col:'#60a5fa' },
@@ -53,16 +58,16 @@ function fmtDate(iso) {
 }
 
 const STAT_CARDS = [
-    { key:'total',               icon:'📋' },
-    { key:'draft',               icon:'📝' },
-    { key:'pending_manager_dept',icon:'⏳' },
-    { key:'pending_supervisor',  icon:'👁' },
-    { key:'pending_manager_wh',  icon:'🏭' },
-    { key:'approved',            icon:'✔️' },
-    { key:'in_progress',         icon:'🔄' },
-    { key:'ready_to_pickup',     icon:'📦' },
-    { key:'completed',           icon:'✅' },
-    { key:'rejected',            icon:'❌' },
+    { key:'total',                bg:'rgba(99,102,241,.12)',  col:'#818cf8', svg:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>' },
+    { key:'draft',                bg:'rgba(100,116,139,.12)', col:'#94a3b8', svg:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>' },
+    { key:'pending_manager_dept', bg:'rgba(59,130,246,.12)',  col:'#60a5fa', svg:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+    { key:'pending_supervisor',   bg:'rgba(234,179,8,.12)',   col:'#fbbf24', svg:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>' },
+    { key:'pending_manager_wh',   bg:'rgba(139,92,246,.12)',  col:'#a78bfa', svg:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>' },
+    { key:'approved',             bg:'rgba(16,185,129,.12)',  col:'#34d399', svg:'<polyline points="20 6 9 17 4 12"/>' },
+    { key:'in_progress',          bg:'rgba(249,115,22,.12)',  col:'#fb923c', svg:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>' },
+    { key:'ready_to_pickup',      bg:'rgba(20,184,166,.12)',  col:'#2dd4bf', svg:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>' },
+    { key:'completed',            bg:'rgba(16,185,129,.12)',  col:'#10b981', svg:'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>' },
+    { key:'rejected',             bg:'rgba(239,68,68,.12)',   col:'#f87171', svg:'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>' },
 ]
 </script>
 
@@ -91,6 +96,11 @@ const STAT_CARDS = [
     <!-- Stat cards -->
     <div class="gi-stats">
       <div v-for="s in STAT_CARDS" :key="s.key" class="gi-stat">
+        <div class="gs-icon" :style="{ background: s.bg }">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" :stroke="s.col"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"
+            v-html="s.svg" />
+        </div>
         <div class="gs-val">{{ counts?.[s.key] ?? 0 }}</div>
         <div class="gs-lbl">{{ $t(`gi.stat_${s.key}`) }}</div>
       </div>
@@ -143,9 +153,24 @@ const STAT_CARDS = [
             <td>{{ gi.requested_by?.name ?? '—' }}</td>
             <td class="gi-date">{{ fmtDate(gi.created_at) }}</td>
             <td class="tc">
-              <Link :href="route('gi.show', gi.id)" class="gi-view-btn">
-                {{ $t('gi.view') }}
-              </Link>
+              <div class="gi-actions-cell">
+                <Link :href="route('gi.show', gi.id)" class="gi-view-btn">
+                  {{ $t('gi.view') }}
+                </Link>
+                <button
+                  v-if="gi.status === 'draft' && (userRole === 'super_admin' || gi.requested_by?.id === $page.props.auth?.user?.id)"
+                  type="button"
+                  class="gi-del-btn"
+                  @click="deleteGI(gi)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                    <path d="M10 11v6"/><path d="M14 11v6"/>
+                    <path d="M9 6V4h6v2"/>
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -185,6 +210,8 @@ const STAT_CARDS = [
   background:var(--surface); border:1px solid var(--border); border-radius:12px;
   padding:14px 16px; display:flex; flex-direction:column; gap:4px;
 }
+.gs-icon { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin-bottom:4px; flex-shrink:0 }
+.gs-icon svg { display:block }
 .gs-val { font-size:22px; font-weight:800; color:var(--fg); line-height:1 }
 .gs-lbl { font-size:11px; color:var(--fg-dim); font-weight:600; text-transform:uppercase; letter-spacing:.04em }
 
@@ -226,6 +253,15 @@ const STAT_CARDS = [
   text-decoration:none; transition:background 150ms;
 }
 .gi-view-btn:hover { background:var(--hover); color:var(--fg) }
+.gi-actions-cell { display:flex; align-items:center; gap:6px; justify-content:center }
+.gi-del-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:6px;
+  background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.2);
+  color:#f87171; cursor:pointer; transition:background 150ms;
+  flex-shrink:0;
+}
+.gi-del-btn:hover { background:rgba(239,68,68,.2); }
 
 /* ── pagination ─────────────────────────────────────────────────────── */
 .gi-pager { display:flex; align-items:center; justify-content:center; gap:12px }

@@ -110,6 +110,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/goods-issues/{gi}/start-picking',    [GoodsIssueController::class, 'startPicking'] )->name('gi.start-picking');
         Route::post('/goods-issues/{gi}/submit-picking',   [GoodsIssueController::class, 'submitPicking'])->name('gi.submit-picking');
         Route::post('/goods-issues/{gi}/pickup',           [GoodsIssueController::class, 'pickup']       )->name('gi.pickup');
+        Route::delete('/goods-issues/{gi}',                [GoodsIssueController::class, 'destroy']       )->name('gi.destroy');
         Route::delete('/gi-photos/{photo}',                [GoodsIssueController::class, 'deletePhoto']   )->name('gi.photos.destroy');
     });
 

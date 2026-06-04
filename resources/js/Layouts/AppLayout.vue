@@ -99,14 +99,20 @@ function notifItemClass(type) {
     return 'dd-info'
 }
 
+// Get CSRF token from meta tag (used for fetch-based API calls)
+function csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
+}
+
 function markNotifRead(notif) {
     bellOpen.value = false
-    // Mark as read via Inertia (handles CSRF automatically)
+    // Mark as read via fetch (not router.post — avoids JSON response issue)
     if (!notif.is_read) {
         notif.is_read = true
-        router.post(route('notifications.read', notif.id), {}, {
-            preserveState: true, preserveScroll: true, only: [],
-        })
+        fetch(route('notifications.read', notif.id), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+        }).catch(() => {})
     }
     // Navigate to relevant page
     if (notif.data?.route && notif.data.route.startsWith('/')) {
@@ -120,9 +126,11 @@ function markNotifRead(notif) {
 
 function markAllRead() {
     localNotifs.value.forEach(n => (n.is_read = true))
-    router.post(route('notifications.read-all'), {}, {
-        preserveState: true, preserveScroll: true, only: [],
-    })
+    // Use fetch instead of router.post — controller returns JSON, not Inertia response
+    fetch(route('notifications.read-all'), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+    }).catch(() => {})
 }
 
 // ── date ──────────────────────────────────────────────────────────────

@@ -71,8 +71,10 @@ const giSteps = computed(() => {
     const rejIdx  = isRej ? (rejStepMap[lastRej?.step] ?? 1) : -1
 
     const mkStep = (i, key, label, sub, time) => {
-        const done     = isRej ? i < rejIdx : i < idx
-        const active   = !isRej && i === idx
+        // When completed, ALL steps (including the last) are done — not active
+        const isCompleted = s === 'completed'
+        const done     = isRej ? i < rejIdx : (isCompleted ? i <= idx : i < idx)
+        const active   = !isRej && !isCompleted && i === idx
         const rejected = isRej && i === rejIdx
         return { key, label, sub, time, done, active, rejected }
     }
