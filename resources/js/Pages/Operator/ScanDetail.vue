@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useForm, Link } from '@inertiajs/vue3'
+import { useForm, Link, router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import OperatorLayout from '@/Layouts/OperatorLayout.vue'
 
