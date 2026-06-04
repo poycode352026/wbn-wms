@@ -139,7 +139,17 @@ function itemName(variant) {
 
     <!-- ── SCAN CARD ────────────────────────────────────────────────────────── -->
     <div class="op-card op-scan-card">
-      <div class="op-scan-label">{{ $t('operator.scanInput') }}</div>
+      <!-- Camera button — open camera to scan QR -->
+      <button type="button" class="op-cam-btn" @click="openCamera">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Scan QR Kamera
+      </button>
+
+      <div class="op-scan-divider">atau input manual</div>
 
       <!-- Text input for hardware scanner / manual entry -->
       <div class="op-scan-row">
@@ -293,6 +303,25 @@ function itemName(variant) {
   transition: opacity 150ms;
 }
 .op-cam-btn:hover { opacity: 0.9; }
+
+/* Divider between camera and manual input */
+.op-scan-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.op-scan-divider::before,
+.op-scan-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
 /* Row: text input + go button */
 .op-scan-row {
