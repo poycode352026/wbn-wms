@@ -302,11 +302,29 @@ const canSubmit = computed(() => {
     return true
 })
 
+const submitError = ref('')
+
 function submit() {
     formSubmitAttempted.value = true
+    submitError.value = ''
+
+    // Validate: must have at least 1 item
+    if (validRows.value.length === 0) {
+        submitError.value = 'Tambahkan minimal 1 item sebelum menyimpan.'
+        return
+    }
+
     // Validate store_to required for all valid rows
     const missingStoreTo = validRows.value.some(r => !r.storeTo?.trim())
-    if (missingStoreTo) return
+    if (missingStoreTo) {
+        submitError.value = 'Kolom "Tujuan/Pemakai" wajib diisi untuk setiap item.'
+        // Scroll to first item with missing storeTo
+        const idx = validRows.value.findIndex(r => !r.storeTo?.trim())
+        if (idx >= 0) {
+            document.querySelectorAll('.gi-row')[idx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        return
+    }
     const items = validRows.value.map(r => ({
         variant_id:         r.variantId,
         requested_qty:      parseFloat(r.qty),
@@ -575,9 +593,17 @@ function submit() {
               {{ $t('gi.validItems', { n: validRows.length }) }}
             </template>
           </div>
+          <!-- Error banner — muncul kalau ada field yang belum diisi -->
+          <div v-if="submitError" class="gi-submit-error">
+            ⚠ {{ submitError }}
+          </div>
+          <div v-if="form.errors && Object.keys(form.errors).length" class="gi-submit-error">
+            ⚠ {{ Object.values(form.errors)[0] }}
+          </div>
+
           <div class="gi-footer-btns">
             <Link :href="route('gi.index')" class="gi-cancel">{{ $t('btn.cancel') }}</Link>
-            <button type="submit" class="gi-save" :disabled="!canSubmit">
+            <button type="submit" class="gi-save" :disabled="!canSubmit || form.processing">
               <svg v-if="form.processing" class="gi-spin" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round" width="14" height="14">
@@ -817,6 +843,12 @@ function submit() {
   padding-top:14px; border-top:1px solid var(--border); gap:12px;
 }
 .gi-valid-hint  { display:flex; align-items:center; gap:5px; font-size:12px; color:#34d399; font-weight:600 }
+.gi-submit-error {
+  width: 100%; font-size: 12.5px; font-weight: 600;
+  color: #f87171; background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.25); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 4px;
+}
 .gi-footer-btns { display:flex; gap:10px; flex-shrink:0 }
 .gi-cancel {
   display:inline-flex; align-items:center; padding:8px 16px; border-radius:8px;
