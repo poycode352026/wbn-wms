@@ -117,8 +117,8 @@ function isActive(path) {
         <span>{{ $t('operator.navJobs') }}</span>
       </a>
 
-      <!-- Scan / active picking (center floating) — opens camera on scan-list page -->
-      <a :href="route('operator.scan-list') + '?camera=1'"
+      <!-- Scan / active picking (center floating) — goes to scan-list, camera opened manually -->
+      <a :href="route('operator.scan-list')"
          class="op-nav-tab op-scan-tab"
          :class="{ active: isActive('/operator/scan/') }">
         <div class="op-scan-icon">

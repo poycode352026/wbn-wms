@@ -107,14 +107,8 @@ function closeCamera() {
 }
 
 onMounted(() => {
-    // Auto-open camera if navigated from Scan button (?camera=1)
-    const url = new URL(window.location.href)
-    if (url.searchParams.get('camera') === '1') {
-        openCamera()
-        // Clean up URL param without reload
-        url.searchParams.delete('camera')
-        history.replaceState(null, '', url.toString())
-    }
+    // Camera opens only when operator explicitly presses the camera button
+    // (auto-open on ?camera=1 removed — caused unwanted camera open on refresh)
 })
 
 onUnmounted(closeCamera)
