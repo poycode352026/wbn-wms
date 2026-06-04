@@ -657,11 +657,13 @@ const messages = {
             // ── status badge labels ───────────────────────────────────────
             status_draft:              'Draft',
             status_arrived:            'Arrived',
+            status_assigned:           'Assigned',
             status_pending_supervisor: 'Pending Approval',
             status_completed:          'Completed',
             // ── progress stepper ──────────────────────────────────────────
             stepCreated:      'Created',
             stepArrived:      'Goods Arrived',
+            stepAssigned:     'Rack Placement',
             stepInspected:    'Inspection',
             stepApproval:     'Approval',
             stepDone:         'Completed',
@@ -671,6 +673,18 @@ const messages = {
             stepAdminPr:      'Procurement Admin',
             stepWHAdmin:      'WH Admin',
             stepSupervisor:   'Supervisor',
+            stepOperatorRole: 'Operator',
+            // ── assign action panel ───────────────────────────────────────
+            actionAssignTitle:  'Rack Placement & Assign Operator',
+            actionAssignSub:    'Set the rack location for each item, then assign an operator to perform the physical inspection.',
+            selectOperator:     'Select operator…',
+            selfAssignBtn:      '⚡ Assign to Me',
+            assignBtn:          'Save Placement & Assign',
+            assignedTo:         'Assigned Operator',
+            assignedAt:         'Assigned At',
+            // ── inspect action panel (operator) ──────────────────────────
+            actionInspectTitle: 'Physical Inspection',
+            actionInspectSub:   'Verify the actual quantities and conditions. Items are already placed at the designated racks.',
             // ── draft edit / delete ───────────────────────────────────────
             editDetails:    'Edit Details',
             saveDetails:    'Save',
@@ -1686,11 +1700,13 @@ const messages = {
             // ── 状态标签 ──────────────────────────────────────────────────
             status_draft:              '草稿',
             status_arrived:            '已到货',
+            status_assigned:           '已分配',
             status_pending_supervisor: '待审批',
             status_completed:          '已完成',
             // ── 进度步骤 ──────────────────────────────────────────────────
             stepCreated:      '已创建',
             stepArrived:      '货物到达',
+            stepAssigned:     '货架放置',
             stepInspected:    '验收',
             stepApproval:     '审批',
             stepDone:         '完成',
@@ -1700,6 +1716,18 @@ const messages = {
             stepAdminPr:      '采购行政',
             stepWHAdmin:      '仓库行政',
             stepSupervisor:   '主管',
+            stepOperatorRole: '操作员',
+            // ── 分配操作面板 ─────────────────────────────────────────────
+            actionAssignTitle:  '货架放置及分配操作员',
+            actionAssignSub:    '为每件物料设置货架位置，然后分配操作员进行实物验收。',
+            selectOperator:     '选择操作员…',
+            selfAssignBtn:      '⚡ 分配给我',
+            assignBtn:          '保存放置并分配',
+            assignedTo:         '已分配操作员',
+            assignedAt:         '分配时间',
+            // ── 验收操作面板（操作员）───────────────────────────────────
+            actionInspectTitle: '实物验收',
+            actionInspectSub:   '核实实际数量和状况。物料已放置在指定货架。',
             // ── draft edit / delete ───────────────────────────────────────
             editDetails:    '编辑信息',
             saveDetails:    '保存',
@@ -2698,11 +2726,13 @@ const messages = {
             // ── label status badge ────────────────────────────────────────
             status_draft:              'Draf',
             status_arrived:            'Tiba',
+            status_assigned:           'Di-assign',
             status_pending_supervisor: 'Menunggu Approval',
             status_completed:          'Selesai',
             // ── progress stepper ──────────────────────────────────────────
             stepCreated:      'Dibuat',
             stepArrived:      'Barang Tiba',
+            stepAssigned:     'Penempatan Rack',
             stepInspected:    'Inspeksi',
             stepApproval:     'Persetujuan',
             stepDone:         'Selesai',
@@ -2712,6 +2742,18 @@ const messages = {
             stepAdminPr:      'Admin Pengadaan',
             stepWHAdmin:      'Admin Gudang',
             stepSupervisor:   'Supervisor',
+            stepOperatorRole: 'Operator',
+            // ── panel assign operator ─────────────────────────────────────
+            actionAssignTitle:  'Penempatan Rack & Assign Operator',
+            actionAssignSub:    'Tetapkan lokasi rack untuk setiap item, lalu assign operator untuk melakukan inspeksi fisik.',
+            selectOperator:     'Pilih operator…',
+            selfAssignBtn:      '⚡ Assign ke Saya',
+            assignBtn:          'Simpan Penempatan & Assign',
+            assignedTo:         'Operator yang Di-assign',
+            assignedAt:         'Di-assign Pada',
+            // ── panel inspeksi (operator) ─────────────────────────────────
+            actionInspectTitle: 'Inspeksi Fisik',
+            actionInspectSub:   'Verifikasi jumlah aktual dan kondisi. Barang sudah ditempatkan di rack yang ditentukan.',
             // ── draft edit / delete ───────────────────────────────────────
             editDetails:    'Edit Detail',
             saveDetails:    'Simpan',

@@ -10,14 +10,15 @@ class GoodsReceipt extends Model
 {
     protected $fillable = [
         'gr_number', 'pr_number', 'po_number', 'warehouse_id',
-        'created_by', 'inspected_by', 'approved_by',
+        'created_by', 'inspected_by', 'approved_by', 'assigned_to',
         'notes', 'status', 'auto_approved',
-        'submitted_at', 'inspected_at', 'completed_at',
+        'submitted_at', 'inspected_at', 'assigned_at', 'completed_at',
     ];
 
     protected $casts = [
         'submitted_at'  => 'datetime',
         'inspected_at'  => 'datetime',
+        'assigned_at'   => 'datetime',
         'completed_at'  => 'datetime',
         'auto_approved' => 'boolean',
     ];
@@ -42,6 +43,11 @@ class GoodsReceipt extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function items(): HasMany

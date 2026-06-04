@@ -10,6 +10,7 @@ const page = usePage()
 const props = defineProps({
     gr:                     Object,
     warehouses:             Array,
+    operators:              Array,
     userRole:               String,
     userId:                 Number,
     hoursUntilAutoApprove:  Number,
@@ -39,10 +40,11 @@ function variantLabel(v) {
 
 // ── status styling ─────────────────────────────────────────────────────────
 const STATUS_MAP = {
-    draft:              { label: 'Draft',            bg: 'rgba(100,116,139,.15)', color: '#94a3b8' },
-    arrived:            { label: 'Arrived',          bg: 'rgba(59,130,246,.15)',  color: '#60a5fa' },
-    pending_supervisor: { label: 'Pending Approval', bg: 'rgba(234,179,8,.15)',   color: '#fbbf24' },
-    completed:          { label: 'Completed',        bg: 'rgba(16,185,129,.15)',  color: '#34d399' },
+    draft:              { label: t('gr.status_draft'),              bg: 'rgba(100,116,139,.15)', color: '#94a3b8' },
+    arrived:            { label: t('gr.status_arrived'),            bg: 'rgba(59,130,246,.15)',  color: '#60a5fa' },
+    assigned:           { label: t('gr.status_assigned'),           bg: 'rgba(249,115,22,.15)',  color: '#fb923c' },
+    pending_supervisor: { label: t('gr.status_pending_supervisor'), bg: 'rgba(234,179,8,.15)',   color: '#fbbf24' },
+    completed:          { label: t('gr.status_completed'),          bg: 'rgba(16,185,129,.15)',  color: '#34d399' },
 }
 const statusStyle = (s) => {
     const m = STATUS_MAP[s] ?? {}
@@ -50,18 +52,25 @@ const statusStyle = (s) => {
 }
 
 // ── role-based UI flags ────────────────────────────────────────────────────
-const canSubmit  = computed(() =>
+const canSubmit = computed(() =>
     props.gr.status === 'draft' &&
     (['procurement_admin', 'wh_admin'].includes(props.userRole) && props.gr.created_by?.id === props.userId ||
      props.userRole === 'super_admin')
 )
-const canInspect = computed(() =>
+// WH Admin places items in racks + assigns operator
+const canAssign = computed(() =>
     props.gr.status === 'arrived' && ['wh_admin', 'super_admin'].includes(props.userRole)
+)
+// Operator (or wh_admin/super_admin) verifies actual qty + condition
+const canInspect = computed(() =>
+    props.gr.status === 'assigned' && (
+        ['wh_admin', 'super_admin'].includes(props.userRole) ||
+        (props.userRole === 'operator' && props.gr.assigned_to?.id === props.userId)
+    )
 )
 const canApprove = computed(() =>
     props.gr.status === 'pending_supervisor' && ['wh_supervisor', 'super_admin'].includes(props.userRole)
 )
-// Edit and delete only while draft + creator (or super_admin)
 const canEdit = computed(() => canSubmit.value)
 
 // ── edit draft details ─────────────────────────────────────────────────────
@@ -81,7 +90,6 @@ function saveEdit() {
 
 // ── delete draft ───────────────────────────────────────────────────────────
 const deleteProcessing = ref(false)
-
 function deleteGr() {
     if (!confirm(t('gr.confirmDelete'))) return
     deleteProcessing.value = true
@@ -89,65 +97,110 @@ function deleteGr() {
 }
 
 // ── photo upload: arrived stage ────────────────────────────────────────────
-const arrivalPhotoInput  = ref(null)
-const arrivalPhotoPreviews = ref([])   // [{ url, name }]
+const arrivalPhotoInput    = ref(null)
+const arrivalPhotoPreviews = ref([])
 
 function onArrivalPhotos(e) {
     const files = Array.from(e.target.files || [])
-    arrivalPhotoPreviews.value = files.map(f => ({
-        url:  URL.createObjectURL(f),
-        name: f.name,
-        file: f,
-    }))
+    arrivalPhotoPreviews.value = files.map(f => ({ url: URL.createObjectURL(f), name: f.name, file: f }))
 }
 function removeArrivalPhoto(idx) {
     arrivalPhotoPreviews.value.splice(idx, 1)
-    if (!arrivalPhotoPreviews.value.length && arrivalPhotoInput.value) {
-        arrivalPhotoInput.value.value = ''
-    }
+    if (!arrivalPhotoPreviews.value.length && arrivalPhotoInput.value) arrivalPhotoInput.value.value = ''
+}
+
+// ── photo upload: assign/placement stage ──────────────────────────────────
+const assignPhotoInput    = ref(null)
+const assignPhotoPreviews = ref([])
+
+function onAssignPhotos(e) {
+    const files = Array.from(e.target.files || [])
+    assignPhotoPreviews.value = files.map(f => ({ url: URL.createObjectURL(f), name: f.name, file: f }))
+}
+function removeAssignPhoto(idx) {
+    assignPhotoPreviews.value.splice(idx, 1)
+    if (!assignPhotoPreviews.value.length && assignPhotoInput.value) assignPhotoInput.value.value = ''
 }
 
 // ── photo upload: inspection stage ─────────────────────────────────────────
-const inspectPhotoInput  = ref(null)
-const inspectPhotoPreviews = ref([])   // [{ url, name }]
+const inspectPhotoInput    = ref(null)
+const inspectPhotoPreviews = ref([])
 
 function onInspectPhotos(e) {
     const files = Array.from(e.target.files || [])
-    inspectPhotoPreviews.value = files.map(f => ({
-        url:  URL.createObjectURL(f),
-        name: f.name,
-        file: f,
-    }))
+    inspectPhotoPreviews.value = files.map(f => ({ url: URL.createObjectURL(f), name: f.name, file: f }))
 }
 function removeInspectPhoto(idx) {
     inspectPhotoPreviews.value.splice(idx, 1)
-    if (!inspectPhotoPreviews.value.length && inspectPhotoInput.value) {
-        inspectPhotoInput.value.value = ''
-    }
+    if (!inspectPhotoPreviews.value.length && inspectPhotoInput.value) inspectPhotoInput.value.value = ''
 }
 
 // ── submit (mark arrived) ──────────────────────────────────────────────────
-const submitForm = useForm({ photos: null })
+const submitProcessing = ref(false)
 function submitArrived() {
     if (!confirm(t('gr.confirmArrived'))) return
+    submitProcessing.value = true
     const fd = new FormData()
     arrivalPhotoPreviews.value.forEach(p => fd.append('photos[]', p.file))
     router.post(route('gr.submit', props.gr.id), fd, {
         forceFormData: true,
         preserveScroll: true,
+        onFinish: () => { submitProcessing.value = false },
     })
 }
 
-// ── inspect form ───────────────────────────────────────────────────────────
-// Build editable items state for inspection
+// ── assign form (WH Admin: rack placement + operator assignment) ───────────
+const assignItems = ref(
+    props.gr.items.map(item => ({
+        id:           item.id,
+        warehouse_id: item.location?.warehouse_id ?? '',
+        location_id:  item.location_id ?? '',
+    }))
+)
+const selectedOperator = ref(null)
+const assignProcessing = ref(false)
+
+function locationsFor(assignItem) {
+    if (!assignItem.warehouse_id || !props.warehouses?.length) return []
+    const wh = props.warehouses.find(w => w.id == assignItem.warehouse_id)
+    return wh ? wh.locations : []
+}
+function onWhChange(assignItem) {
+    assignItem.location_id = ''
+}
+
+function selfAssignOp() {
+    selectedOperator.value = props.userId
+}
+
+const assignAllValid = computed(() =>
+    assignItems.value.every(i => i.location_id) && selectedOperator.value
+)
+
+function submitAssign() {
+    if (!assignAllValid.value) return
+    assignProcessing.value = true
+    const fd = new FormData()
+    fd.append('operator_id', selectedOperator.value)
+    assignItems.value.forEach((item, idx) => {
+        fd.append(`items[${idx}][id]`,          item.id)
+        fd.append(`items[${idx}][location_id]`, item.location_id)
+    })
+    assignPhotoPreviews.value.forEach(p => fd.append('photos[]', p.file))
+    router.post(route('gr.assign', props.gr.id), fd, {
+        forceFormData: true,
+        preserveScroll: true,
+        onFinish: () => { assignProcessing.value = false },
+    })
+}
+
+// ── inspect form (Operator: actual qty + condition) ────────────────────────
 const inspectItems = ref(
     props.gr.items.map(item => ({
         id:              item.id,
         actual_qty:      item.actual_qty ?? '',
         condition:       item.condition ?? 'good',
         condition_notes: item.condition_notes ?? '',
-        warehouse_id:    item.location?.warehouse_id ?? '',
-        location_id:     item.location_id ?? '',
     }))
 )
 
@@ -160,41 +213,21 @@ const COND_STYLES = {
 }
 function condStyle(c) { return COND_STYLES[c] ?? COND_STYLES.other }
 
-// locations cascade per row
-function locationsFor(inspItem) {
-    if (!inspItem.warehouse_id || !props.warehouses.length) return []
-    const wh = props.warehouses.find(w => w.id == inspItem.warehouse_id)
-    return wh ? wh.locations : []
-}
-
-watch(inspectItems, (items) => {
-    items.forEach(item => {
-        // reset location when warehouse changes
-    })
-}, { deep: true })
-
-function onWhChange(inspItem) {
-    inspItem.location_id = ''
-}
-
-const inspectForm = useForm({})
 const inspectProcessing = ref(false)
 
 function submitInspect() {
     const validItems = inspectItems.value.filter(i =>
-        i.actual_qty !== '' && !isNaN(parseFloat(i.actual_qty)) && i.location_id
+        i.actual_qty !== '' && !isNaN(parseFloat(i.actual_qty))
     )
     if (!validItems.length) return
 
     inspectProcessing.value = true
-
     const fd = new FormData()
     inspectItems.value.forEach((item, idx) => {
         fd.append(`items[${idx}][id]`,              item.id)
         fd.append(`items[${idx}][actual_qty]`,      parseFloat(item.actual_qty) || 0)
         fd.append(`items[${idx}][condition]`,       item.condition)
         fd.append(`items[${idx}][condition_notes]`, item.condition_notes || '')
-        fd.append(`items[${idx}][location_id]`,     item.location_id)
     })
     inspectPhotoPreviews.value.forEach(p => fd.append('photos[]', p.file))
 
@@ -218,47 +251,54 @@ function submitApprove() {
 // ── progress stepper ──────────────────────────────────────────────────────
 const steps = computed(() => {
     const s = props.gr.status
-
     return [
         {
-            key:     'created',
-            label:   t('gr.stepCreated'),
-            sub:     props.gr.created_by?.name ?? '—',
-            time:    props.gr.created_at,
-            done:    true,
-            active:  false,
+            key:    'created',
+            label:  t('gr.stepCreated'),
+            sub:    props.gr.created_by?.name ?? '—',
+            time:   props.gr.created_at,
+            done:   true,
+            active: false,
         },
         {
-            key:     'arrived',
-            label:   t('gr.stepArrived'),
-            sub:     props.gr.created_by?.name ?? '—',
-            time:    props.gr.submitted_at,
-            done:    ['arrived','pending_supervisor','completed'].includes(s),
-            active:  s === 'draft',
+            key:    'arrived',
+            label:  t('gr.stepArrived'),
+            sub:    props.gr.created_by?.name ?? '—',
+            time:   props.gr.submitted_at,
+            done:   ['arrived','assigned','pending_supervisor','completed'].includes(s),
+            active: s === 'draft',
         },
         {
-            key:     'inspected',
-            label:   t('gr.stepInspected'),
-            sub:     props.gr.inspected_by?.name ?? t('gr.stepWHAdmin'),
-            time:    props.gr.inspected_at,
-            done:    ['pending_supervisor','completed'].includes(s),
-            active:  s === 'arrived',
+            key:    'assigned',
+            label:  t('gr.stepAssigned'),
+            sub:    props.gr.assigned_to?.name ?? t('gr.stepWHAdmin'),
+            time:   props.gr.assigned_at,
+            done:   ['assigned','pending_supervisor','completed'].includes(s),
+            active: s === 'arrived',
         },
         {
-            key:     'approval',
-            label:   t('gr.stepApproval'),
-            sub:     props.gr.auto_approved ? t('gr.systemAuto') : (props.gr.approved_by?.name ?? t('gr.stepSupervisor')),
-            time:    props.gr.completed_at,
-            done:    s === 'completed',
-            active:  s === 'pending_supervisor',
+            key:    'inspected',
+            label:  t('gr.stepInspected'),
+            sub:    props.gr.inspected_by?.name ?? t('gr.stepOperatorRole'),
+            time:   props.gr.inspected_at,
+            done:   ['pending_supervisor','completed'].includes(s),
+            active: s === 'assigned',
         },
         {
-            key:     'selesai',
-            label:   t('gr.stepDone'),
-            sub:     s === 'completed' ? t('gr.stepStockUpdated') : t('gr.stepWaiting'),
-            time:    props.gr.completed_at,
-            done:    s === 'completed',
-            active:  false,
+            key:    'approval',
+            label:  t('gr.stepApproval'),
+            sub:    props.gr.auto_approved ? t('gr.systemAuto') : (props.gr.approved_by?.name ?? t('gr.stepSupervisor')),
+            time:   props.gr.completed_at,
+            done:   s === 'completed',
+            active: s === 'pending_supervisor',
+        },
+        {
+            key:    'selesai',
+            label:  t('gr.stepDone'),
+            sub:    s === 'completed' ? t('gr.stepStockUpdated') : t('gr.stepWaiting'),
+            time:   props.gr.completed_at,
+            done:   s === 'completed',
+            active: false,
         },
     ]
 })
@@ -274,11 +314,9 @@ const countdownLabel = computed(() => {
 })
 
 // ── lightbox ───────────────────────────────────────────────────────────────
-const lightbox = ref(null)   // { url, name, list[], idx }
+const lightbox = ref(null)
 
-function openLightbox(photos, idx) {
-    lightbox.value = { list: photos, idx }
-}
+function openLightbox(photos, idx) { lightbox.value = { list: photos, idx } }
 function closeLightbox() { lightbox.value = null }
 function lightboxPrev() {
     if (!lightbox.value) return
@@ -292,20 +330,16 @@ const lightboxCurrent = computed(() =>
     lightbox.value ? lightbox.value.list[lightbox.value.idx] : null
 )
 
-// ── keyboard shortcuts ─────────────────────────────────────────────────────
 function onKey(e) {
     if (!lightbox.value) return
-    if (e.key === 'Escape')    closeLightbox()
-    if (e.key === 'ArrowLeft') lightboxPrev()
-    if (e.key === 'ArrowRight')lightboxNext()
+    if (e.key === 'Escape')     closeLightbox()
+    if (e.key === 'ArrowLeft')  lightboxPrev()
+    if (e.key === 'ArrowRight') lightboxNext()
 }
 onMounted(()   => window.addEventListener('keydown', onKey))
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 
-// ── open lightbox for pre-upload previews ─────────────────────────────────
-function previewLightbox(previews, idx) {
-    lightbox.value = { list: previews, idx }
-}
+function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx } }
 </script>
 
 <template>
@@ -365,6 +399,14 @@ function previewLightbox(previews, idx) {
         <span class="sh-meta-lbl">{{ $t('gr.arrivedAt') }}</span>
         <span class="sh-meta-val">{{ fmtDate(gr.submitted_at) }}</span>
       </div>
+      <div class="sh-meta-item" v-if="gr.assigned_to">
+        <span class="sh-meta-lbl">{{ $t('gr.assignedTo') }}</span>
+        <span class="sh-meta-val">{{ gr.assigned_to?.name ?? '—' }}</span>
+      </div>
+      <div class="sh-meta-item" v-if="gr.assigned_at">
+        <span class="sh-meta-lbl">{{ $t('gr.assignedAt') }}</span>
+        <span class="sh-meta-val">{{ fmtDate(gr.assigned_at) }}</span>
+      </div>
       <div class="sh-meta-item" v-if="gr.inspected_at">
         <span class="sh-meta-lbl">{{ $t('gr.inspectedBy') }}</span>
         <span class="sh-meta-val">{{ gr.inspected_by?.name ?? '—' }}</span>
@@ -417,29 +459,20 @@ function previewLightbox(previews, idx) {
   <!-- ── PROGRESS STEPPER ─────────────────────────────────────────────────── -->
   <div class="sh-stepper">
     <template v-for="(step, i) in steps" :key="step.key">
-      <!-- connector -->
       <div v-if="i > 0" class="sh-connector" :class="{ 'sh-con-done': steps[i].done || steps[i].active }"></div>
-
-      <!-- step node -->
       <div class="sh-step" :class="{
         'sh-step-done':   step.done,
         'sh-step-active': step.active,
         'sh-step-future': !step.done && !step.active,
       }">
-        <!-- circle icon -->
         <div class="sh-step-dot">
-          <!-- done: checkmark -->
           <svg v-if="step.done" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
             <path d="M20 6 9 17l-5-5"/>
           </svg>
-          <!-- active: pulse ring -->
           <div v-else-if="step.active" class="sh-dot-pulse"></div>
-          <!-- future: step number -->
           <span v-else class="sh-dot-num">{{ i + 1 }}</span>
         </div>
-
-        <!-- label + meta -->
         <div class="sh-step-body">
           <div class="sh-step-label">{{ step.label }}</div>
           <div class="sh-step-sub">{{ step.sub }}</div>
@@ -452,9 +485,9 @@ function previewLightbox(previews, idx) {
     </template>
   </div>
 
-  <!-- ── ACTION PANEL ─────────────────────────────────────────────────────── -->
+  <!-- ── ACTION PANELS ─────────────────────────────────────────────────────── -->
 
-  <!-- procurement_admin / wh_admin + draft: mark as arrived -->
+  <!-- 1. Mark as arrived (draft, creator/super_admin) -->
   <div v-if="canSubmit" class="sh-action-panel sh-action-blue sh-action-col">
     <div class="sh-action-row">
       <div class="sh-action-info">
@@ -467,7 +500,6 @@ function previewLightbox(previews, idx) {
         {{ $t('gr.markArrived') }}
       </button>
     </div>
-    <!-- Photo upload for arrival -->
     <div class="sh-photo-upload">
       <label class="sh-photo-lbl">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -483,7 +515,91 @@ function previewLightbox(previews, idx) {
     </div>
   </div>
 
-  <!-- supervisor + pending_supervisor: auto-approve countdown + approve button -->
+  <!-- 2. Rack placement + assign operator (arrived, wh_admin/super_admin) -->
+  <div v-if="canAssign" class="sh-assign-wrap">
+    <div class="sh-assign-header">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <div>
+        <div class="sh-assign-title">{{ $t('gr.actionAssignTitle') }}</div>
+        <div class="sh-assign-sub">{{ $t('gr.actionAssignSub') }}</div>
+      </div>
+    </div>
+
+    <!-- Per-item rack assignment -->
+    <div class="sh-assign-items">
+      <div class="sh-assign-item" v-for="(aItem, idx) in assignItems" :key="aItem.id">
+        <div class="sh-ai-info">
+          <div class="sh-ai-top">
+            <span class="sh-cat" v-if="gr.items[idx]?.variant?.item?.category">{{ gr.items[idx].variant.item.category.code }}</span>
+            <span class="sh-sku">{{ gr.items[idx]?.variant?.sku ?? '—' }}</span>
+          </div>
+          <div class="sh-item-name">{{ itemName(gr.items[idx]?.variant?.item) }}</div>
+          <div class="sh-item-variant" v-if="gr.items[idx]?.variant && variantLabel(gr.items[idx].variant)">
+            {{ variantLabel(gr.items[idx].variant) }}
+          </div>
+          <div class="sh-ai-expected">
+            {{ $t('gr.expected') }}: <b>{{ gr.items[idx]?.expected_qty?.toLocaleString() }}</b> {{ gr.items[idx]?.uom }}
+          </div>
+        </div>
+        <div class="sh-ai-inputs">
+          <div class="sh-iifg">
+            <label class="sh-iilbl">{{ $t('gr.warehouse') }} <span class="cr-req">*</span></label>
+            <select class="sh-iinput" v-model="aItem.warehouse_id" @change="onWhChange(aItem)" required>
+              <option value="">{{ $t('gr.selectWh') }}</option>
+              <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.code }} · {{ wh.name }}</option>
+            </select>
+          </div>
+          <div class="sh-iifg">
+            <label class="sh-iilbl">{{ $t('gr.rack') }} <span class="cr-req">*</span></label>
+            <select class="sh-iinput" v-model="aItem.location_id" :disabled="!aItem.warehouse_id" required>
+              <option value="">{{ $t('gr.selectRack') }}</option>
+              <option v-for="loc in locationsFor(aItem)" :key="loc.id" :value="loc.id">{{ loc.code }} · {{ loc.name }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operator selector -->
+    <div class="sh-assign-op-row">
+      <div class="sh-assign-op-left">
+        <label class="sh-iilbl">{{ $t('gr.assignedTo') }} <span class="cr-req">*</span></label>
+        <div class="sh-op-controls">
+          <select class="sh-iinput sh-op-select" v-model="selectedOperator">
+            <option :value="null">{{ $t('gr.selectOperator') }}</option>
+            <option v-for="op in operators" :key="op.id" :value="op.id">{{ op.name }}</option>
+          </select>
+          <button type="button" class="sh-self-assign-btn" @click="selfAssignOp">
+            {{ $t('gr.selfAssignBtn') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optional placement photos -->
+    <div class="sh-photo-upload sh-photo-upload-inspect">
+      <label class="sh-photo-lbl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        {{ $t('gr.photoUpload') }}
+        <input ref="assignPhotoInput" type="file" multiple accept="image/*" class="sh-photo-hidden" @change="onAssignPhotos" />
+      </label>
+      <div v-if="assignPhotoPreviews.length" class="sh-photo-previews">
+        <div v-for="(p, i) in assignPhotoPreviews" :key="i" class="sh-photo-thumb">
+          <img :src="p.url" :alt="p.name" @click.stop="previewLightbox(assignPhotoPreviews, i)" />
+          <button type="button" class="sh-photo-remove" @click.stop="removeAssignPhoto(i)">×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sh-inspect-footer">
+      <button type="button" class="sh-btn-inspect" :disabled="assignProcessing || !assignAllValid" @click="submitAssign">
+        <svg v-if="assignProcessing" class="sh-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        {{ assignProcessing ? $t('gr.submitting') : $t('gr.assignBtn') }}
+      </button>
+    </div>
+  </div>
+
+  <!-- 3. Approve (pending_supervisor, supervisor/super_admin) -->
   <div v-if="canApprove" class="sh-action-panel sh-action-amber">
     <div class="sh-action-info">
       <div class="sh-action-title">{{ $t('gr.actionApproveTitle') }}</div>
@@ -514,17 +630,17 @@ function previewLightbox(previews, idx) {
   <!-- ── ITEMS TABLE ─────────────────────────────────────────────────────── -->
   <div class="sh-section-label">{{ $t('gr.sectionItems') }} ({{ gr.items.length }})</div>
 
-  <!-- READ-ONLY: draft / arrived / completed -->
-  <div v-if="!canInspect" class="sh-table-wrap">
+  <!-- READ-ONLY table: shown when not in assign or inspect form mode -->
+  <div v-if="!canAssign && !canInspect" class="sh-table-wrap">
     <table class="sh-table">
       <thead>
         <tr>
           <th style="width:52px"></th>
           <th>{{ $t('gr.colVariant') }}</th>
           <th class="tr">{{ $t('gr.colExpQty') }}</th>
-          <th v-if="gr.status !== 'draft' && gr.status !== 'arrived'" class="tr">{{ $t('gr.colActQty') }}</th>
-          <th v-if="gr.status !== 'draft' && gr.status !== 'arrived'">{{ $t('gr.colCondition') }}</th>
-          <th v-if="gr.status !== 'draft' && gr.status !== 'arrived'">{{ $t('gr.colLocation') }}</th>
+          <th v-if="['pending_supervisor','completed'].includes(gr.status)" class="tr">{{ $t('gr.colActQty') }}</th>
+          <th v-if="['pending_supervisor','completed'].includes(gr.status)">{{ $t('gr.colCondition') }}</th>
+          <th v-if="['assigned','pending_supervisor','completed'].includes(gr.status)">{{ $t('gr.colLocation') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -545,20 +661,20 @@ function previewLightbox(previews, idx) {
             <span class="sh-qty">{{ item.expected_qty.toLocaleString() }}</span>
             <span class="sh-uom">{{ item.uom }}</span>
           </td>
-          <td v-if="gr.status !== 'draft' && gr.status !== 'arrived'" class="tr">
+          <td v-if="['pending_supervisor','completed'].includes(gr.status)" class="tr">
             <span class="sh-qty" :class="{ 'sh-qty-diff': item.actual_qty && item.actual_qty !== item.expected_qty }">
               {{ item.actual_qty?.toLocaleString() ?? '—' }}
             </span>
             <span class="sh-uom" v-if="item.actual_qty">{{ item.uom }}</span>
           </td>
-          <td v-if="gr.status !== 'draft' && gr.status !== 'arrived'">
+          <td v-if="['pending_supervisor','completed'].includes(gr.status)">
             <span v-if="item.condition" class="sh-cond-badge" :style="condStyle(item.condition)">
               {{ $t('gr.cond_' + item.condition) }}
             </span>
             <span v-else class="sh-dim">—</span>
             <div class="sh-cond-notes" v-if="item.condition_notes">{{ item.condition_notes }}</div>
           </td>
-          <td v-if="gr.status !== 'draft' && gr.status !== 'arrived'">
+          <td v-if="['assigned','pending_supervisor','completed'].includes(gr.status)">
             <div v-if="item.location" class="sh-loc">
               <span class="sh-loc-wh">{{ item.location.warehouse?.code ?? '—' }}</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10"><path d="m9 18 6-6-6-6"/></svg>
@@ -571,16 +687,16 @@ function previewLightbox(previews, idx) {
     </table>
   </div>
 
-  <!-- INSPECT FORM: wh_admin + arrived -->
+  <!-- INSPECT FORM: operator/wh_admin + assigned status -->
   <div v-if="canInspect" class="sh-inspect-wrap">
     <div class="sh-inspect-info">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      {{ $t('gr.inspectInfo') }}
+      {{ $t('gr.actionInspectSub') }}
     </div>
 
     <div class="sh-inspect-items">
       <div class="sh-inspect-item" v-for="(inspItem, idx) in inspectItems" :key="inspItem.id">
-        <!-- Item info (left) -->
+        <!-- Item info -->
         <div class="sh-ii-info">
           <div class="sh-ii-top">
             <span class="sh-cat" v-if="gr.items[idx]?.variant?.item?.category">{{ gr.items[idx].variant.item.category.code }}</span>
@@ -593,9 +709,15 @@ function previewLightbox(previews, idx) {
           <div class="sh-ii-expected">
             {{ $t('gr.expected') }}: <b>{{ gr.items[idx]?.expected_qty?.toLocaleString() }}</b> {{ gr.items[idx]?.uom }}
           </div>
+          <!-- Read-only rack location (set by WH Admin) -->
+          <div v-if="gr.items[idx]?.location" class="sh-ii-rack">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {{ gr.items[idx].location.warehouse?.code ?? '—' }} →
+            {{ gr.items[idx].location.code }} · {{ gr.items[idx].location.name }}
+          </div>
         </div>
 
-        <!-- Inputs (right) -->
+        <!-- Inputs -->
         <div class="sh-ii-inputs">
           <!-- Actual Qty -->
           <div class="sh-iifg">
@@ -622,22 +744,6 @@ function previewLightbox(previews, idx) {
           <div class="sh-iifg sh-iifg-full" v-if="inspItem.condition && inspItem.condition !== 'good'">
             <label class="sh-iilbl">{{ $t('gr.condNotes') }}</label>
             <input class="sh-iinput" type="text" v-model="inspItem.condition_notes" :placeholder="$t('gr.condNotesPh')" maxlength="500" />
-          </div>
-
-          <!-- Warehouse + Location cascade -->
-          <div class="sh-iifg">
-            <label class="sh-iilbl">{{ $t('gr.warehouse') }} <span class="cr-req">*</span></label>
-            <select class="sh-iinput" v-model="inspItem.warehouse_id" @change="onWhChange(inspItem)" required>
-              <option value="">{{ $t('gr.selectWh') }}</option>
-              <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.code }} · {{ wh.name }}</option>
-            </select>
-          </div>
-          <div class="sh-iifg">
-            <label class="sh-iilbl">{{ $t('gr.rack') }} <span class="cr-req">*</span></label>
-            <select class="sh-iinput" v-model="inspItem.location_id" :disabled="!inspItem.warehouse_id" required>
-              <option value="">{{ $t('gr.selectRack') }}</option>
-              <option v-for="loc in locationsFor(inspItem)" :key="loc.id" :value="loc.id">{{ loc.code }} · {{ loc.name }}</option>
-            </select>
           </div>
         </div>
       </div>
@@ -674,34 +780,26 @@ function previewLightbox(previews, idx) {
       {{ $t('gr.photoGallery') }} ({{ gr.photos.length }})
     </div>
 
-    <!-- Arrived photos -->
     <template v-if="gr.photos.filter(p => p.stage === 'arrived').length">
       <div class="sh-gallery-group-lbl">
         <span class="sh-stage-badge sh-stage-arrived">{{ $t('gr.stepArrived') }}</span>
       </div>
       <div class="sh-gallery-grid">
-        <div
-          v-for="(p, i) in gr.photos.filter(p => p.stage === 'arrived')" :key="p.id"
-          class="sh-gallery-item"
-          @click="openLightbox(gr.photos.filter(px => px.stage === 'arrived'), i)"
-        >
+        <div v-for="(p, i) in gr.photos.filter(p => p.stage === 'arrived')" :key="p.id"
+          class="sh-gallery-item" @click="openLightbox(gr.photos.filter(px => px.stage === 'arrived'), i)">
           <img :src="p.url" :alt="p.original_name" loading="lazy" />
           <div class="sh-gallery-meta">{{ p.uploaded_by }}</div>
         </div>
       </div>
     </template>
 
-    <!-- Inspection photos -->
     <template v-if="gr.photos.filter(p => p.stage === 'inspection').length">
       <div class="sh-gallery-group-lbl" style="margin-top:12px">
         <span class="sh-stage-badge sh-stage-inspect">{{ $t('gr.stepInspected') }}</span>
       </div>
       <div class="sh-gallery-grid">
-        <div
-          v-for="(p, i) in gr.photos.filter(p => p.stage === 'inspection')" :key="p.id"
-          class="sh-gallery-item"
-          @click="openLightbox(gr.photos.filter(px => px.stage === 'inspection'), i)"
-        >
+        <div v-for="(p, i) in gr.photos.filter(p => p.stage === 'inspection')" :key="p.id"
+          class="sh-gallery-item" @click="openLightbox(gr.photos.filter(px => px.stage === 'inspection'), i)">
           <img :src="p.url" :alt="p.original_name" loading="lazy" />
           <div class="sh-gallery-meta">{{ p.uploaded_by }}</div>
         </div>
@@ -712,20 +810,14 @@ function previewLightbox(previews, idx) {
   <!-- ── LIGHTBOX ─────────────────────────────────────────────────────────── -->
   <Teleport to="body">
     <div v-if="lightbox" class="sh-lb-overlay" @click.self="closeLightbox">
-      <!-- close -->
       <button class="sh-lb-close" @click="closeLightbox">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
-
-      <!-- prev -->
       <button v-if="lightbox.list.length > 1" class="sh-lb-nav sh-lb-prev" @click.stop="lightboxPrev">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="m15 18-6-6 6-6"/></svg>
       </button>
-
-      <!-- image -->
       <div class="sh-lb-img-wrap" @click.stop>
         <img v-if="lightboxCurrent" :src="lightboxCurrent.url" :alt="lightboxCurrent.original_name" class="sh-lb-img" />
-        <!-- meta -->
         <div class="sh-lb-caption" v-if="lightboxCurrent">
           <span>{{ lightboxCurrent.original_name }}</span>
           <span class="sh-lb-sep">·</span>
@@ -735,8 +827,6 @@ function previewLightbox(previews, idx) {
           <span class="sh-lb-counter">{{ lightbox.idx + 1 }} / {{ lightbox.list.length }}</span>
         </div>
       </div>
-
-      <!-- next -->
       <button v-if="lightbox.list.length > 1" class="sh-lb-nav sh-lb-next" @click.stop="lightboxNext">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="m9 18 6-6-6-6"/></svg>
       </button>
@@ -777,74 +867,41 @@ function previewLightbox(previews, idx) {
   border-radius:14px; padding:22px 24px; gap:0;
   overflow-x:auto;
 }
-
-/* connector line between steps */
 .sh-connector {
-  flex:1; min-width:32px; height:2px; margin-top:18px;
+  flex:1; min-width:20px; height:2px; margin-top:18px;
   background:var(--border-2); border-radius:2px; flex-shrink:1;
 }
 .sh-connector.sh-con-done { background:var(--orange-500) }
-
-/* step node */
 .sh-step {
   display:flex; flex-direction:column; align-items:center;
-  gap:8px; min-width:90px; max-width:120px; text-align:center; flex-shrink:0;
+  gap:8px; min-width:80px; max-width:110px; text-align:center; flex-shrink:0;
 }
-
-/* dot */
 .sh-step-dot {
   width:36px; height:36px; border-radius:50%;
   display:grid; place-items:center; flex-shrink:0;
   border:2px solid var(--border-2);
   background:var(--surface-2); position:relative;
 }
-.sh-step-done .sh-step-dot {
-  background:var(--orange-500); border-color:var(--orange-500); color:#fff;
-}
-.sh-step-active .sh-step-dot {
-  border-color:var(--orange-500); background:rgba(249,115,22,.12);
-}
-.sh-step-future .sh-step-dot {
-  background:var(--surface-2); border-color:var(--border-2);
-}
-
-/* dot contents */
+.sh-step-done .sh-step-dot { background:var(--orange-500); border-color:var(--orange-500); color:#fff }
+.sh-step-active .sh-step-dot { border-color:var(--orange-500); background:rgba(249,115,22,.12) }
+.sh-step-future .sh-step-dot { background:var(--surface-2); border-color:var(--border-2) }
 .sh-dot-num { font-size:13px; font-weight:700; color:var(--fg-dim) }
-
-.sh-dot-pulse {
-  width:10px; height:10px; border-radius:50%;
-  background:var(--orange-500);
-  animation:sh-pulse 1.4s ease-in-out infinite;
-}
-@keyframes sh-pulse {
-  0%,100% { transform:scale(1); opacity:1 }
-  50%      { transform:scale(1.5); opacity:.6 }
-}
-
-/* step text */
+.sh-dot-pulse { width:10px; height:10px; border-radius:50%; background:var(--orange-500); animation:sh-pulse 1.4s ease-in-out infinite }
+@keyframes sh-pulse { 0%,100% { transform:scale(1); opacity:1 } 50% { transform:scale(1.5); opacity:.6 } }
 .sh-step-body { display:flex; flex-direction:column; align-items:center; gap:2px }
-.sh-step-label {
-  font-size:12.5px; font-weight:700; color:var(--fg); white-space:nowrap;
-}
+.sh-step-label { font-size:11.5px; font-weight:700; color:var(--fg); white-space:nowrap }
 .sh-step-future .sh-step-label { color:var(--fg-dim) }
 .sh-step-active .sh-step-label { color:var(--orange-500) }
-
-.sh-step-sub { font-size:11px; color:var(--fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px }
+.sh-step-sub { font-size:10.5px; color:var(--fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100px }
 .sh-step-done .sh-step-sub { color:var(--fg-2) }
-
-.sh-step-time { font-size:10.5px; color:var(--fg-dim); margin-top:2px; white-space:nowrap }
+.sh-step-time { font-size:10px; color:var(--fg-dim); margin-top:2px; white-space:nowrap }
 .sh-step-in-progress { color:var(--orange-500); display:flex; align-items:center; gap:4px; justify-content:center }
-
-.sh-prog-dot {
-  width:6px; height:6px; border-radius:50%; background:var(--orange-500);
-  animation:sh-pulse 1s ease-in-out infinite;
-}
+.sh-prog-dot { width:6px; height:6px; border-radius:50%; background:var(--orange-500); animation:sh-pulse 1s ease-in-out infinite }
 
 /* action panels */
 .sh-action-panel { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px 20px; border-radius:12px; border:1px solid transparent; flex-wrap:wrap }
 .sh-action-blue { background:rgba(59,130,246,.08); border-color:rgba(59,130,246,.2) }
 .sh-action-amber { background:rgba(234,179,8,.08); border-color:rgba(234,179,8,.2) }
-
 .sh-action-info { display:flex; flex-direction:column; gap:3px }
 .sh-action-title { font-size:14px; font-weight:700; color:var(--fg) }
 .sh-action-sub { display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--fg-2) }
@@ -852,6 +909,8 @@ function previewLightbox(previews, idx) {
 .sh-action-btn:disabled { opacity:.6; cursor:default }
 .sh-btn-blue { background:linear-gradient(180deg,#3b82f6,#2563eb); color:#fff; box-shadow:0 4px 12px -3px rgba(59,130,246,.5) }
 .sh-btn-green { background:linear-gradient(180deg,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(16,185,129,.5) }
+.sh-action-col { flex-direction:column; align-items:stretch; gap:12px }
+.sh-action-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap }
 
 .sh-completed-banner { display:flex; align-items:center; gap:14px; padding:16px 20px; background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.2); border-radius:12px }
 .sh-completed-banner svg { color:#34d399; flex-shrink:0 }
@@ -887,7 +946,40 @@ function previewLightbox(previews, idx) {
 .sh-loc-rack { font-size:12.5px; color:var(--fg-2) }
 .sh-dim { color:var(--fg-dim); font-size:12px }
 
+/* ── assign form (rack placement) ────────────────────────────────────────── */
+.sh-assign-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; display:flex; flex-direction:column; gap:16px; box-shadow:var(--shadow-sm) }
+.sh-assign-header { display:flex; align-items:flex-start; gap:12px; padding-bottom:12px; border-bottom:1px solid var(--border) }
+.sh-assign-header svg { color:var(--orange-500); flex-shrink:0; margin-top:2px }
+.sh-assign-title { font-size:14px; font-weight:700; color:var(--fg) }
+.sh-assign-sub { font-size:12.5px; color:var(--fg-2); margin-top:2px }
+
+.sh-assign-items { display:flex; flex-direction:column; gap:10px }
+.sh-assign-item { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:grid; grid-template-columns:1fr 1.6fr; gap:16px }
+@media(max-width:640px){ .sh-assign-item{ grid-template-columns:1fr } }
+
+.sh-ai-info { display:flex; flex-direction:column; gap:4px }
+.sh-ai-top { display:flex; align-items:center; gap:6px; margin-bottom:2px }
+.sh-ai-expected { font-size:12px; color:var(--fg-2); margin-top:4px }
+.sh-ai-expected b { color:var(--fg); font-weight:700 }
+
+.sh-ai-inputs { display:grid; grid-template-columns:1fr 1fr; gap:10px }
+@media(max-width:420px){ .sh-ai-inputs{ grid-template-columns:1fr } }
+
+/* operator select row */
+.sh-assign-op-row { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:14px 16px }
+.sh-assign-op-left { display:flex; flex-direction:column; gap:8px }
+.sh-op-controls { display:flex; gap:8px; flex-wrap:wrap }
+.sh-op-select { flex:1; min-width:200px }
+.sh-self-assign-btn {
+  padding:8px 14px; border-radius:8px; font-size:13px; font-weight:700;
+  background:rgba(249,115,22,.12); color:var(--orange-500);
+  border:1px solid rgba(249,115,22,.3); cursor:pointer; font-family:inherit;
+  transition:background 160ms; white-space:nowrap;
+}
+.sh-self-assign-btn:hover { background:rgba(249,115,22,.2) }
+
 /* inspect form */
+.sh-inspect-wrap { display:flex; flex-direction:column; gap:12px }
 .sh-inspect-info { display:flex; align-items:center; gap:8px; padding:12px 16px; background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.2); border-radius:9px; font-size:13px; color:var(--fg-2) }
 .sh-inspect-info svg { color:#60a5fa; flex-shrink:0 }
 
@@ -899,6 +991,8 @@ function previewLightbox(previews, idx) {
 .sh-ii-top { display:flex; align-items:center; gap:6px; margin-bottom:4px }
 .sh-ii-expected { font-size:12.5px; color:var(--fg-2); margin-top:6px }
 .sh-ii-expected b { color:var(--fg); font-weight:700 }
+.sh-ii-rack { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--fg-2); margin-top:4px; padding:4px 8px; background:rgba(249,115,22,.08); border-radius:5px; border:1px solid rgba(249,115,22,.15) }
+.sh-ii-rack svg { color:var(--orange-500); flex-shrink:0 }
 
 .sh-ii-inputs { display:grid; grid-template-columns:1fr 1fr; gap:10px }
 .sh-iifg { display:flex; flex-direction:column; gap:4px }
@@ -918,16 +1012,10 @@ function previewLightbox(previews, idx) {
 .sh-btn-inspect { display:inline-flex; align-items:center; gap:7px; padding:11px 24px; border-radius:9px; font-size:14px; font-weight:700; cursor:pointer; background:linear-gradient(180deg,var(--orange-400),var(--orange-500)); color:#fff; border:none; box-shadow:0 4px 12px -3px rgba(249,115,22,.5); transition:opacity 180ms }
 .sh-btn-inspect:disabled { opacity:.6; cursor:default }
 
-.sh-inspect-wrap { display:flex; flex-direction:column; gap:12px }
-
 @keyframes sh-spin { to { transform:rotate(360deg) } }
 .sh-spin { animation:sh-spin .8s linear infinite; flex-shrink:0 }
 
-/* ── action panel col layout (for photo upload inside) ─────────────────── */
-.sh-action-col { flex-direction:column; align-items:stretch; gap:12px }
-.sh-action-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap }
-
-/* ── header edit button ───────────────────────────────────────────────────── */
+/* header edit button */
 .sh-header-actions { margin-left:auto; display:flex; align-items:center; gap:8px }
 .sh-edit-toggle-btn {
   display:inline-flex; align-items:center; gap:6px;
@@ -940,145 +1028,55 @@ function previewLightbox(previews, idx) {
 .sh-delete-btn:hover { background:rgba(239,68,68,.08); color:var(--rose) }
 .sh-delete-btn:disabled { opacity:.6; cursor:default }
 
-/* ── edit form (inside header card) ──────────────────────────────────────── */
+/* edit form */
 .sh-edit-form { display:flex; flex-direction:column; gap:10px; padding-top:4px }
 .sh-edit-form-sub { font-size:12px; color:var(--fg-2); margin:0 0 4px }
 .sh-edit-row { display:flex; flex-direction:column; gap:4px }
 .sh-edit-lbl { font-size:11.5px; font-weight:600; color:var(--fg-2); letter-spacing:.02em }
-.sh-edit-input {
-  width:100%; padding:8px 11px; border-radius:8px;
-  border:1px solid var(--border-2); background:var(--surface-2);
-  color:var(--fg); font-size:13px; font-family:inherit;
-  transition:border-color 180ms;
-  box-sizing:border-box;
-}
+.sh-edit-input { width:100%; padding:8px 11px; border-radius:8px; border:1px solid var(--border-2); background:var(--surface-2); color:var(--fg); font-size:13px; font-family:inherit; transition:border-color 180ms; box-sizing:border-box }
 .sh-edit-input:focus { outline:none; border-color:var(--blue-500) }
 .sh-edit-textarea { resize:vertical; min-height:70px }
 .sh-edit-btns { display:flex; gap:8px; padding-top:4px }
-.sh-edit-save {
-  padding:8px 18px; border-radius:8px; border:none;
-  background:linear-gradient(180deg,var(--orange-400),var(--orange-500));
-  color:#fff; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
-  transition:opacity 180ms;
-}
+.sh-edit-save { padding:8px 18px; border-radius:8px; border:none; background:linear-gradient(180deg,var(--orange-400),var(--orange-500)); color:#fff; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity 180ms }
 .sh-edit-save:disabled { opacity:.6; cursor:default }
-.sh-edit-cancel {
-  padding:8px 16px; border-radius:8px; border:1px solid var(--border-2);
-  background:transparent; color:var(--fg-2); font-size:13px; font-weight:600;
-  cursor:pointer; font-family:inherit; transition:background 180ms;
-}
+.sh-edit-cancel { padding:8px 16px; border-radius:8px; border:1px solid var(--border-2); background:transparent; color:var(--fg-2); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; transition:background 180ms }
 .sh-edit-cancel:hover { background:var(--hover) }
 
-/* ── photo upload ─────────────────────────────────────────────────────────── */
+/* photo upload */
 .sh-photo-upload { display:flex; flex-direction:column; gap:8px; padding-top:4px }
-.sh-photo-upload-inspect {
-  padding:14px 16px; background:var(--surface-2);
-  border:1px dashed var(--border-2); border-radius:9px;
-}
-
-.sh-photo-lbl {
-  display:inline-flex; align-items:center; gap:7px;
-  padding:7px 14px; border-radius:8px; cursor:pointer;
-  font-size:12.5px; font-weight:600; color:var(--fg-2);
-  background:var(--surface-3); border:1px solid var(--border-2);
-  transition:border-color 160ms, color 160ms; width:fit-content;
-}
+.sh-photo-upload-inspect { padding:14px 16px; background:var(--surface-2); border:1px dashed var(--border-2); border-radius:9px }
+.sh-photo-lbl { display:inline-flex; align-items:center; gap:7px; padding:7px 14px; border-radius:8px; cursor:pointer; font-size:12.5px; font-weight:600; color:var(--fg-2); background:var(--surface-3); border:1px solid var(--border-2); transition:border-color 160ms, color 160ms; width:fit-content }
 .sh-photo-lbl:hover { border-color:var(--orange-400); color:var(--orange-500) }
 .sh-photo-hidden { display:none }
-
-.sh-photo-previews {
-  display:flex; flex-wrap:wrap; gap:8px;
-}
-.sh-photo-thumb {
-  position:relative; width:72px; height:72px;
-  border-radius:9px; overflow:hidden;
-  border:2px solid var(--border-2);
-}
-.sh-photo-thumb img { width:100%; height:100%; object-fit:cover; display:block }
-.sh-photo-remove {
-  position:absolute; top:2px; right:2px;
-  width:18px; height:18px; border-radius:50%;
-  background:rgba(0,0,0,.65); color:#fff; border:none; cursor:pointer;
-  font-size:13px; line-height:1; display:grid; place-items:center; padding:0;
-}
+.sh-photo-previews { display:flex; flex-wrap:wrap; gap:8px }
+.sh-photo-thumb { position:relative; width:72px; height:72px; border-radius:9px; overflow:hidden; border:2px solid var(--border-2) }
+.sh-photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in }
+.sh-photo-remove { position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,.65); color:#fff; border:none; cursor:pointer; font-size:13px; line-height:1; display:grid; place-items:center; padding:0 }
 .sh-photo-remove:hover { background:rgba(239,68,68,.85) }
 
-/* ── photo gallery ────────────────────────────────────────────────────────── */
-.sh-gallery-wrap {
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:12px; padding:18px 20px;
-  display:flex; flex-direction:column; gap:14px;
-}
-.sh-gallery-group { display:flex; flex-direction:column; gap:10px }
+/* photo gallery */
+.sh-gallery-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; display:flex; flex-direction:column; gap:14px }
 .sh-gallery-group-lbl { display:flex; align-items:center; gap:8px }
-.sh-stage-badge {
-  display:inline-block; padding:3px 10px; border-radius:999px;
-  font-size:11px; font-weight:700; letter-spacing:.04em;
-}
+.sh-stage-badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.04em }
 .sh-stage-arrived  { background:rgba(59,130,246,.12); color:#60a5fa }
 .sh-stage-inspect  { background:rgba(234,179,8,.12); color:#fbbf24 }
-
-.sh-gallery-grid {
-  display:flex; flex-wrap:wrap; gap:10px;
-}
-.sh-gallery-item {
-  display:flex; flex-direction:column; gap:5px;
-  width:120px; cursor:pointer;
-}
-.sh-gallery-item img {
-  width:120px; height:90px; object-fit:cover;
-  border-radius:9px; border:2px solid var(--border);
-  transition:transform 160ms, border-color 160ms;
-  display:block;
-}
+.sh-gallery-grid { display:flex; flex-wrap:wrap; gap:10px }
+.sh-gallery-item { display:flex; flex-direction:column; gap:5px; width:120px; cursor:pointer }
+.sh-gallery-item img { width:120px; height:90px; object-fit:cover; border-radius:9px; border:2px solid var(--border); transition:transform 160ms, border-color 160ms; display:block }
 .sh-gallery-item:hover img { transform:scale(1.03); border-color:var(--orange-400) }
-.sh-gallery-meta {
-  font-size:10.5px; color:var(--fg-dim); white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; text-align:center;
-}
+.sh-gallery-meta { font-size:10.5px; color:var(--fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center }
 
-/* ── lightbox ─────────────────────────────────────────────────────────────── */
-.sh-lb-overlay {
-  position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,.88);
-  display:flex; align-items:center; justify-content:center;
-  padding:20px;
-}
-.sh-lb-img-wrap {
-  display:flex; flex-direction:column; align-items:center; gap:12px;
-  max-width:90vw; max-height:90vh;
-}
-.sh-lb-img {
-  max-width:100%; max-height:80vh;
-  object-fit:contain; border-radius:10px;
-  box-shadow:0 20px 60px rgba(0,0,0,.6);
-  display:block;
-}
-.sh-lb-caption {
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center;
-  font-size:12px; color:rgba(255,255,255,.7);
-}
+/* lightbox */
+.sh-lb-overlay { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.88); display:flex; align-items:center; justify-content:center; padding:20px }
+.sh-lb-img-wrap { display:flex; flex-direction:column; align-items:center; gap:12px; max-width:90vw; max-height:90vh }
+.sh-lb-img { max-width:100%; max-height:80vh; object-fit:contain; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.6); display:block }
+.sh-lb-caption { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; font-size:12px; color:rgba(255,255,255,.7) }
 .sh-lb-sep { opacity:.4 }
 .sh-lb-counter { margin-left:8px; opacity:.5; font-size:11px }
-
-.sh-lb-close {
-  position:fixed; top:18px; right:20px;
-  width:40px; height:40px; border-radius:50%;
-  background:rgba(255,255,255,.12); border:none; color:#fff; cursor:pointer;
-  display:grid; place-items:center; transition:background 160ms;
-}
+.sh-lb-close { position:fixed; top:18px; right:20px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.12); border:none; color:#fff; cursor:pointer; display:grid; place-items:center; transition:background 160ms }
 .sh-lb-close:hover { background:rgba(239,68,68,.7) }
-
-.sh-lb-nav {
-  position:fixed; top:50%; transform:translateY(-50%);
-  width:44px; height:44px; border-radius:50%;
-  background:rgba(255,255,255,.12); border:none; color:#fff; cursor:pointer;
-  display:grid; place-items:center; transition:background 160ms;
-}
+.sh-lb-nav { position:fixed; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,.12); border:none; color:#fff; cursor:pointer; display:grid; place-items:center; transition:background 160ms }
 .sh-lb-nav:hover { background:rgba(255,255,255,.25) }
 .sh-lb-prev { left:16px }
 .sh-lb-next { right:16px }
-
-/* preview thumb cursor */
-.sh-photo-thumb img { cursor:zoom-in }
 </style>

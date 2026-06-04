@@ -85,17 +85,20 @@ Route::middleware('auth')->group(function () {
     });
 
     // ── Goods Receipt ──────────────────────────────────────────────────────────────────
+    // Specific literal routes first (before wildcard {gr}) to avoid route conflicts
     Route::middleware('permission:goodsReceipt')->group(function () {
         Route::get('/goods-receipts',                [GoodsReceiptController::class, 'index']  )->name('gr.index');
         Route::get('/goods-receipts/create',         [GoodsReceiptController::class, 'create'] )->name('gr.create');
         Route::post('/goods-receipts',               [GoodsReceiptController::class, 'store']  )->name('gr.store');
-        Route::get('/goods-receipts/{gr}',           [GoodsReceiptController::class, 'show']   )->name('gr.show');
         Route::patch('/goods-receipts/{gr}',         [GoodsReceiptController::class, 'update'] )->name('gr.update');
         Route::delete('/goods-receipts/{gr}',        [GoodsReceiptController::class, 'destroy'])->name('gr.destroy');
         Route::post('/goods-receipts/{gr}/submit',   [GoodsReceiptController::class, 'submit'] )->name('gr.submit');
-        Route::post('/goods-receipts/{gr}/inspect',  [GoodsReceiptController::class, 'inspect'])->name('gr.inspect');
         Route::post('/goods-receipts/{gr}/approve',  [GoodsReceiptController::class, 'approve'])->name('gr.approve');
     });
+    // These 3 routes are accessible to operators (for their assigned GRs) — controller handles auth
+    Route::get('/goods-receipts/{gr}',          [GoodsReceiptController::class, 'show']   )->name('gr.show');
+    Route::post('/goods-receipts/{gr}/assign',  [GoodsReceiptController::class, 'assign'] )->name('gr.assign');
+    Route::post('/goods-receipts/{gr}/inspect', [GoodsReceiptController::class, 'inspect'])->name('gr.inspect');
 
     // ── Goods Issue ───────────────────────────────────────────────────────────────────
     Route::middleware('permission:goodsIssue')->group(function () {

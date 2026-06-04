@@ -8,6 +8,7 @@ use App\Models\GoodsReceiptPhoto;
 use App\Models\ItemVariant;
 use App\Models\Location;
 use App\Models\StockLedger;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -40,13 +41,17 @@ class GoodsReceiptController extends Controller
             // Procurement admin only sees GRs they created
             $query->where('created_by', $user->id);
         } elseif ($role === 'wh_admin') {
-            // WH admin sees: their own drafts + all arrived/inspecting/completed
+            // WH admin sees: their own drafts + all arrived/assigned/inspecting/completed
             $query->where(function ($q) use ($user) {
                 $q->where('created_by', $user->id)
-                  ->orWhereIn('status', ['arrived', 'pending_supervisor', 'completed']);
+                  ->orWhereIn('status', ['arrived', 'assigned', 'pending_supervisor', 'completed']);
             });
         } elseif ($role === 'wh_supervisor') {
             $query->whereIn('status', ['pending_supervisor', 'completed']);
+        } elseif ($role === 'operator') {
+            // Operator only sees GRs assigned to them
+            $query->where('assigned_to', $user->id)
+                  ->whereIn('status', ['assigned', 'pending_supervisor', 'completed']);
         }
         // super_admin: semua
 
@@ -73,6 +78,7 @@ class GoodsReceiptController extends Controller
             'total'              => (clone $baseQuery)->count(),
             'draft'              => (clone $baseQuery)->where('status', 'draft')->count(),
             'arrived'            => (clone $baseQuery)->where('status', 'arrived')->count(),
+            'assigned'           => (clone $baseQuery)->where('status', 'assigned')->count(),
             'pending_supervisor' => (clone $baseQuery)->where('status', 'pending_supervisor')->count(),
             'completed'          => (clone $baseQuery)->where('status', 'completed')->count(),
         ];
@@ -173,22 +179,33 @@ class GoodsReceiptController extends Controller
 
     public function show(Request $request, GoodsReceipt $gr): Response
     {
+        $user = $request->user();
+        $role = $user->role;
+
+        // Authorization: allow wh roles + procurement_admin + operator (only if assigned)
+        $allowedRoles = ['procurement_admin', 'wh_admin', 'wh_supervisor', 'super_admin'];
+        if (!in_array($role, $allowedRoles)) {
+            if ($role === 'operator' && $gr->assigned_to === $user->id) {
+                // Operator can view their assigned GR — allowed
+            } else {
+                abort(403, 'Access denied.');
+            }
+        }
+
         $gr->load([
             'warehouse:id,code,name',
             'createdBy:id,name',
             'inspectedBy:id,name',
             'approvedBy:id,name',
+            'assignedTo:id,name',
             'items.variant.item.category',
             'items.location.warehouse',
             'photos.uploader:id,name',
         ]);
 
-        $user = $request->user();
-        $role = $user->role;
-
-        // Build warehouses+locations for inspection form (wh_admin)
+        // Build warehouses+locations for rack-placement form (wh_admin, arrived status only)
         $warehouses = [];
-        if (in_array($role, ['wh_admin', 'super_admin'])) {
+        if (in_array($role, ['wh_admin', 'super_admin']) && $gr->status === 'arrived') {
             $warehouses = Warehouse::where('is_active', true)->orderBy('name')
                 ->with(['locations' => fn ($q) => $q->where('is_active', true)->orderBy('code')])
                 ->get()
@@ -205,6 +222,16 @@ class GoodsReceiptController extends Controller
                 ]);
         }
 
+        // Load operator list for assignment (wh_admin, arrived status only)
+        $operators = [];
+        if (in_array($role, ['wh_admin', 'super_admin']) && $gr->status === 'arrived') {
+            $operators = User::where('role', 'operator')
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->toArray();
+        }
+
         // Auto-approve countdown (hours remaining)
         $hoursUntilAutoApprove = null;
         if ($gr->status === 'pending_supervisor' && $gr->inspected_at) {
@@ -215,10 +242,83 @@ class GoodsReceiptController extends Controller
         return Inertia::render('GoodsReceipt/Show', [
             'gr'         => $this->formatGrDetail($gr),
             'warehouses' => $warehouses,
+            'operators'  => $operators,
             'userRole'   => $role,
             'userId'     => $user->id,
             'hoursUntilAutoApprove' => $hoursUntilAutoApprove,
         ]);
+    }
+
+    // ── Assign (arrived → assigned) — WH Admin sets rack + assigns operator ─────
+
+    public function assign(Request $request, GoodsReceipt $gr): RedirectResponse
+    {
+        $this->authorizeRole($request, ['wh_admin', 'super_admin']);
+
+        if ($gr->status !== 'arrived') {
+            return back()->with('error', 'GR harus dalam status arrived untuk dapat di-assign.');
+        }
+
+        $data = $request->validate([
+            'operator_id'         => ['required', 'exists:users,id'],
+            'items'               => ['required', 'array', 'min:1'],
+            'items.*.id'          => ['required', 'exists:goods_receipt_items,id'],
+            'items.*.location_id' => ['required', 'exists:locations,id'],
+            'photos'              => ['nullable', 'array', 'max:10'],
+            'photos.*'            => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        DB::transaction(function () use ($gr, $data, $request) {
+            $firstLocationId = null;
+
+            foreach ($data['items'] as $itemData) {
+                $item = GoodsReceiptItem::where('id', $itemData['id'])
+                    ->where('goods_receipt_id', $gr->id)
+                    ->firstOrFail();
+
+                $item->update(['location_id' => $itemData['location_id']]);
+                $firstLocationId ??= $itemData['location_id'];
+            }
+
+            // Auto-set warehouse from first item's location
+            $warehouseId = $gr->warehouse_id;
+            if (!$warehouseId && $firstLocationId) {
+                $loc = Location::find($firstLocationId);
+                $warehouseId = $loc?->warehouse_id;
+            }
+
+            $gr->update([
+                'status'       => 'assigned',
+                'assigned_to'  => $data['operator_id'],
+                'assigned_at'  => now(),
+                'warehouse_id' => $warehouseId,
+            ]);
+        });
+
+        // Optional photos for rack placement
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $photo) {
+                $path = $photo->store('gr-photos', 'public');
+                GoodsReceiptPhoto::create([
+                    'goods_receipt_id' => $gr->id,
+                    'path'             => $path,
+                    'original_name'    => $photo->getClientOriginalName(),
+                    'stage'            => 'inspection',
+                    'uploaded_by'      => $request->user()->id,
+                ]);
+            }
+        }
+
+        // Notify assigned operator
+        NotificationService::send(
+            $data['operator_id'],
+            'gr_assigned',
+            "GR Assigned — {$gr->gr_number}",
+            "You have been assigned to inspect GR {$gr->gr_number}. Please verify the actual quantities and conditions.",
+            ['gr_id' => $gr->id, 'gr_number' => $gr->gr_number, 'route' => 'gr.show']
+        );
+
+        return back()->with('success', "GR {$gr->gr_number} berhasil di-assign ke operator.");
     }
 
     // ── Update (draft only — edit PR/PO/notes) ─────────────────────────────────
@@ -322,30 +422,37 @@ class GoodsReceiptController extends Controller
         return back()->with('success', "GR {$gr->gr_number} ditandai sebagai sudah tiba.");
     }
 
-    // ── Inspect (arrived → pending_supervisor) ─────────────────────────────────
+    // ── Inspect (assigned → pending_supervisor) — Operator verifies qty & condition
 
     public function inspect(Request $request, GoodsReceipt $gr): RedirectResponse
     {
-        $this->authorizeRole($request, ['wh_admin', 'super_admin']);
+        $user = $request->user();
+        $role = $user->role;
 
-        if ($gr->status !== 'arrived') {
-            return back()->with('error', 'GR belum dalam status arrived.');
+        // Authorization: wh_admin/super_admin always allowed; operator only if assigned to them
+        if ($role === 'operator') {
+            if ($gr->assigned_to !== $user->id) {
+                return back()->with('error', 'Akses tidak diizinkan.');
+            }
+        } elseif (!in_array($role, ['wh_admin', 'super_admin'])) {
+            return back()->with('error', 'Akses tidak diizinkan.');
+        }
+
+        if ($gr->status !== 'assigned') {
+            return back()->with('error', 'GR harus dalam status assigned untuk dapat diinspeksi.');
         }
 
         $data = $request->validate([
-            'items'                    => ['required', 'array', 'min:1'],
-            'items.*.id'               => ['required', 'exists:goods_receipt_items,id'],
-            'items.*.actual_qty'       => ['required', 'numeric', 'min:0'],
-            'items.*.condition'        => ['required', 'in:good,damaged,broken,other'],
-            'items.*.condition_notes'  => ['nullable', 'string', 'max:500'],
-            'items.*.location_id'      => ['required', 'exists:locations,id'],
-            'photos'                   => ['nullable', 'array', 'max:10'],
-            'photos.*'                 => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'items'                   => ['required', 'array', 'min:1'],
+            'items.*.id'              => ['required', 'exists:goods_receipt_items,id'],
+            'items.*.actual_qty'      => ['required', 'numeric', 'min:0'],
+            'items.*.condition'       => ['required', 'in:good,damaged,broken,other'],
+            'items.*.condition_notes' => ['nullable', 'string', 'max:500'],
+            'photos'                  => ['nullable', 'array', 'max:10'],
+            'photos.*'                => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        DB::transaction(function () use ($gr, $data, $request) {
-            $firstLocationId = null;
-
+        DB::transaction(function () use ($gr, $data, $user) {
             foreach ($data['items'] as $itemData) {
                 $item = GoodsReceiptItem::where('id', $itemData['id'])
                     ->where('goods_receipt_id', $gr->id)
@@ -355,23 +462,12 @@ class GoodsReceiptController extends Controller
                     'actual_qty'      => $itemData['actual_qty'],
                     'condition'       => $itemData['condition'],
                     'condition_notes' => $itemData['condition_notes'] ?? null,
-                    'location_id'     => $itemData['location_id'],
                 ]);
-
-                $firstLocationId ??= $itemData['location_id'];
-            }
-
-            // Auto-set warehouse from first item's location
-            $warehouseId = $gr->warehouse_id;
-            if (!$warehouseId && $firstLocationId) {
-                $loc = \App\Models\Location::find($firstLocationId);
-                $warehouseId = $loc?->warehouse_id;
             }
 
             $gr->update([
                 'status'       => 'pending_supervisor',
-                'warehouse_id' => $warehouseId,
-                'inspected_by' => $request->user()->id,
+                'inspected_by' => $user->id,
                 'inspected_at' => now(),
             ]);
         });
@@ -384,17 +480,18 @@ class GoodsReceiptController extends Controller
                     'path'             => $path,
                     'original_name'    => $photo->getClientOriginalName(),
                     'stage'            => 'inspection',
-                    'uploaded_by'      => $request->user()->id,
+                    'uploaded_by'      => $user->id,
                 ]);
             }
         }
 
         // Notify supervisor to review and approve
+        $inspectorName = $user->name;
         NotificationService::sendToRole(
             ['wh_supervisor', 'super_admin'],
             'gr_inspected',
             "Inspection Done — {$gr->gr_number}",
-            "GR {$gr->gr_number} inspection has been completed by WH Admin. Awaiting your approval.",
+            "GR {$gr->gr_number} physical inspection completed by {$inspectorName}. Awaiting your approval.",
             ['gr_id' => $gr->id, 'gr_number' => $gr->gr_number, 'route' => 'gr.show']
         );
 
@@ -505,11 +602,13 @@ class GoodsReceiptController extends Controller
                 'code' => $gr->warehouse->code,
                 'name' => $gr->warehouse->name,
             ] : null,
-            'created_by'  => $gr->createdBy ? ['id' => $gr->createdBy->id, 'name' => $gr->createdBy->name] : null,
-            'inspected_by'=> $gr->inspectedBy ? ['id' => $gr->inspectedBy->id, 'name' => $gr->inspectedBy->name] : null,
-            'approved_by' => $gr->approvedBy ? ['id' => $gr->approvedBy->id, 'name' => $gr->approvedBy->name] : null,
+            'created_by'   => $gr->createdBy   ? ['id' => $gr->createdBy->id,   'name' => $gr->createdBy->name]   : null,
+            'inspected_by' => $gr->inspectedBy ? ['id' => $gr->inspectedBy->id, 'name' => $gr->inspectedBy->name] : null,
+            'approved_by'  => $gr->approvedBy  ? ['id' => $gr->approvedBy->id,  'name' => $gr->approvedBy->name]  : null,
+            'assigned_to'  => $gr->assignedTo  ? ['id' => $gr->assignedTo->id,  'name' => $gr->assignedTo->name]  : null,
             'submitted_at'  => $gr->submitted_at?->toISOString(),
             'inspected_at'  => $gr->inspected_at?->toISOString(),
+            'assigned_at'   => $gr->assigned_at?->toISOString(),
             'completed_at'  => $gr->completed_at?->toISOString(),
             'created_at'    => $gr->created_at?->toISOString(),
         ];
