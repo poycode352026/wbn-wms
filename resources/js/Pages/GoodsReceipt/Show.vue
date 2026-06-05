@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { router, useForm, Link, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import OperatorLayout from '@/Layouts/OperatorLayout.vue'
 
 const { t, locale } = useI18n()
 const page = usePage()
@@ -11,10 +12,13 @@ const props = defineProps({
     gr:                     Object,
     warehouses:             Array,
     operators:              Array,
+    stockLocationMap:       { type: Object, default: () => null },
     userRole:               String,
     userId:                 Number,
     hoursUntilAutoApprove:  Number,
 })
+
+const layoutComponent = computed(() => props.userRole === 'operator' ? OperatorLayout : AppLayout)
 
 const flash = computed(() => page.props.flash ?? {})
 
@@ -285,7 +289,7 @@ const steps = computed(() => {
         {
             key:    'assigned',
             label:  t('gr.stepAssigned'),
-            sub:    props.gr.assigned_to?.name ?? t('gr.stepWHAdmin'),
+            sub:    t('gr.stepWHAdmin'),
             time:   props.gr.assigned_at,
             done:   ['assigned','pending_supervisor','completed'].includes(s),
             active: s === 'arrived',
@@ -357,7 +361,7 @@ function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx
 </script>
 
 <template>
-<AppLayout>
+<component :is="layoutComponent">
   <template #title>{{ gr.gr_number }}</template>
   <template #breadcrumb>
     <Link :href="route('gr.index')" class="bc-link">{{ $t('gr.title') }}</Link>
@@ -553,6 +557,17 @@ function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx
           </div>
           <div class="sh-ai-expected">
             {{ $t('gr.expected') }}: <b>{{ gr.items[idx]?.expected_qty?.toLocaleString() }}</b> {{ gr.items[idx]?.uom }}
+          </div>
+          <!-- Current stock locations hint -->
+          <div v-if="stockLocationMap && stockLocationMap[gr.items[idx]?.item_variant_id]?.length" class="sh-ai-stock">
+            <div class="sh-ai-stock-lbl">📦 Current stock:</div>
+            <div v-for="sl in stockLocationMap[gr.items[idx].item_variant_id]" :key="sl.location_code" class="sh-ai-stock-row">
+              <span class="sh-ai-stock-loc">{{ sl.warehouse_code }} · {{ sl.location_code }}</span>
+              <span class="sh-ai-stock-qty">{{ sl.qty }} pcs</span>
+            </div>
+          </div>
+          <div v-else-if="stockLocationMap && !stockLocationMap[gr.items[idx]?.item_variant_id]?.length" class="sh-ai-stock-empty">
+            📦 No existing stock
           </div>
         </div>
         <div class="sh-ai-inputs">
@@ -861,7 +876,7 @@ function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx
     </div>
   </Teleport>
 
-</AppLayout>
+</component>
 </template>
 
 <style scoped>
@@ -1110,4 +1125,12 @@ function previewLightbox(previews, idx) { lightbox.value = { list: previews, idx
 .sh-lb-nav:hover { background:rgba(255,255,255,.25) }
 .sh-lb-prev { left:16px }
 .sh-lb-next { right:16px }
+
+/* stock location hint in rack placement */
+.sh-ai-stock { margin-top:6px; padding:6px 8px; background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.15); border-radius:6px; display:flex; flex-direction:column; gap:3px }
+.sh-ai-stock-lbl { font-size:10px; font-weight:700; color:#60a5fa; text-transform:uppercase; letter-spacing:.05em }
+.sh-ai-stock-row { display:flex; justify-content:space-between; gap:8px; font-size:11.5px }
+.sh-ai-stock-loc { color:var(--fg-2); font-family:monospace }
+.sh-ai-stock-qty { font-weight:700; color:var(--fg); }
+.sh-ai-stock-empty { margin-top:4px; font-size:11px; color:var(--fg-dim); font-style:italic }
 </style>

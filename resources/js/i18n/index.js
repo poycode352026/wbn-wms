@@ -131,6 +131,18 @@ const messages = {
             mandatoryViewList:   'View list',
             mandatoryOverdueEmp: '{n} employee(s)',
             mandatoryOverdueLv:  '{n} vehicle(s)',
+            // admin_dept stat cards
+            deptTotalGI:      'Total GI',
+            deptTotalGISub:   'All department GI',
+            deptCompleted:    'Completed',
+            deptCompletedSub: 'GI completed',
+            deptInProgress:   'In Progress',
+            deptInProgressSub:'Currently active',
+            deptDraft:        'Draft',
+            deptDraftSub:     'Not yet submitted',
+            deptRejected:     'Rejected',
+            deptRejectedSub:  'GI rejected',
+            deptPendingReq:   '{n} employee request(s) awaiting action',
         },
         // ── chart ─────────────────────────────────────────────────────
         chart: {
@@ -835,6 +847,7 @@ const messages = {
             colStoreTo:              'Destination',
             colTracking:             'LV / Employee',
             colItemReason:           'Reason',
+            deleteGI:                'Delete GI',
         },
         lv: {
             title:             'Vehicle Management',
@@ -874,6 +887,7 @@ const messages = {
             inactiveStatus:    'Inactive',
             noResults:         'No LV found.',
             driverAssignNote:  'Driver and department assignment is managed by each Dept Admin in Employee Management.',
+            colDriver:         'Driver',
         },
         emp: {
             title:             'Employee Master',
@@ -1184,6 +1198,18 @@ const messages = {
             mandatoryViewList:   '查看列表',
             mandatoryOverdueEmp: '{n} 名员工',
             mandatoryOverdueLv:  '{n} 辆车',
+            // admin_dept stat cards
+            deptTotalGI:      '总GI',
+            deptTotalGISub:   '部门所有GI',
+            deptCompleted:    '已完成',
+            deptCompletedSub: '已完成的GI',
+            deptInProgress:   '进行中',
+            deptInProgressSub:'当前处理中',
+            deptDraft:        '草稿',
+            deptDraftSub:     '未提交',
+            deptRejected:     '已拒绝',
+            deptRejectedSub:  '已被拒绝的GI',
+            deptPendingReq:   '{n} 个员工申请待处理',
         },
         chart: {
             week:   ['周一','周二','周三','周四','周五','周六','周日'],
@@ -1870,6 +1896,7 @@ const messages = {
             colStoreTo:              '领用方向',
             colTracking:             'LV/员工',
             colItemReason:           '原因',
+            deleteGI:                '删除GI',
         },
         lv: {
             title:             '车辆管理',
@@ -1909,6 +1936,7 @@ const messages = {
             inactiveStatus:    '停用',
             noResults:         '未找到LV。',
             driverAssignNote:  '驾驶员和部门分配由各部门管理员在员工管理中设置。',
+            colDriver:         '驾驶员',
         },
         emp: {
             title:             '员工主数据',
@@ -2211,6 +2239,18 @@ const messages = {
             mandatoryViewList:   'Lihat daftar',
             mandatoryOverdueEmp: '{n} karyawan',
             mandatoryOverdueLv:  '{n} LV',
+            // admin_dept stat cards
+            deptTotalGI:      'Total GI',
+            deptTotalGISub:   'Semua GI departemen',
+            deptCompleted:    'Selesai',
+            deptCompletedSub: 'GI telah selesai',
+            deptInProgress:   'Dalam Proses',
+            deptInProgressSub:'Sedang berjalan',
+            deptDraft:        'Draft',
+            deptDraftSub:     'Belum disubmit',
+            deptRejected:     'Ditolak',
+            deptRejectedSub:  'GI yang ditolak',
+            deptPendingReq:   '{n} permintaan karyawan menunggu tindakan',
         },
         chart: {
             week:   ['Sen','Sel','Rab','Kam','Jum','Sab','Min'],
@@ -2897,6 +2937,7 @@ const messages = {
             colStoreTo:              'Tujuan',
             colTracking:             'LV / Karyawan',
             colItemReason:           'Alasan',
+            deleteGI:                'Hapus GI',
         },
         lv: {
             title:             'Manajemen Kendaraan',
@@ -2936,6 +2977,7 @@ const messages = {
             inactiveStatus:    'Nonaktif',
             noResults:         'Tidak ada LV ditemukan.',
             driverAssignNote:  'Penugasan driver dan departemen dikelola oleh Admin Dept masing-masing di halaman Manajemen Karyawan.',
+            colDriver:         'Driver',
         },
         emp: {
             title:             'Master Karyawan',

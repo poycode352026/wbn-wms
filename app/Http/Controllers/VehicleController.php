@@ -17,10 +17,14 @@ class VehicleController extends Controller
     public function index(Request $request): Response
     {
         $query = Vehicle::withCount('cooldowns')
-            ->with(['cooldowns' => fn ($q) =>
-                $q->with('variant:id,item_id', 'variant.item:id,name_en,name_id')
-                  ->latest('cooldown_until')
-                  ->limit(1)
+            ->with([
+                'cooldowns' => fn ($q) =>
+                    $q->with('variant:id,item_id', 'variant.item:id,name_en,name_id')
+                      ->latest('cooldown_until')
+                      ->limit(1),
+                'driver:id,name,department_id',
+                'driver.department:id,name,code',
+                'department:id,name,code',
             ]);
 
         if ($request->search) {

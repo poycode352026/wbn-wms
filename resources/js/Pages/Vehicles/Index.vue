@@ -228,6 +228,7 @@ watch(() => form.type, (newType) => {
           <tr>
             <th>{{ $t('lv.colIdentifier') }}</th>
             <th>{{ $t('lv.colType') }}</th>
+            <th>{{ $t('lv.colDriver') }}</th>
             <th>{{ $t('lv.colLastUsed') }}</th>
             <th>{{ $t('lv.colStatus') }}</th>
             <th style="width:48px;"></th>
@@ -235,7 +236,7 @@ watch(() => form.type, (newType) => {
         </thead>
         <tbody>
           <tr v-if="!vehicles.data.length">
-            <td colspan="5" class="empty-row">{{ $t('lv.noResults') }}</td>
+            <td colspan="6" class="empty-row">{{ $t('lv.noResults') }}</td>
           </tr>
           <tr v-for="v in vehicles.data" :key="v.id">
             <td>
@@ -247,6 +248,13 @@ watch(() => form.type, (newType) => {
             </td>
             <td>
               <div v-if="v.type" class="cell-sub">{{ v.type }}</div>
+              <span v-else class="cell-sub">—</span>
+            </td>
+            <td>
+              <div v-if="v.driver" class="cell-sub">
+                <div style="font-weight:600">{{ v.driver.name }}</div>
+                <div style="font-size:11px;color:var(--fg-dim)">{{ v.driver.department?.name ?? '—' }}</div>
+              </div>
               <span v-else class="cell-sub">—</span>
             </td>
             <td>

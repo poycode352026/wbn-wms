@@ -183,7 +183,7 @@ class GoodsReceiptController extends Controller
         $role = $user->role;
 
         // Authorization: allow wh roles + procurement_admin + operator (only if assigned)
-        $allowedRoles = ['procurement_admin', 'wh_admin', 'wh_supervisor', 'super_admin'];
+        $allowedRoles = ['procurement_admin', 'wh_admin', 'wh_supervisor', 'wh_manager', 'super_admin'];
         if (!in_array($role, $allowedRoles)) {
             if ($role === 'operator' && $gr->assigned_to === $user->id) {
                 // Operator can view their assigned GR — allowed
@@ -232,6 +232,25 @@ class GoodsReceiptController extends Controller
                 ->toArray();
         }
 
+        // Stock location map for rack placement hint (where is the item currently stored?)
+        $stockLocationMap = null;
+        if (in_array($role, ['wh_admin', 'super_admin']) && $gr->status === 'arrived') {
+            $stockLocationMap = [];
+            foreach ($gr->items as $item) {
+                $vid = $item->item_variant_id;
+                $locs = StockLedger::where('item_variant_id', $vid)
+                    ->where('qty_on_hand', '>', 0)
+                    ->with(['location:id,code,name', 'warehouse:id,code,name'])
+                    ->get(['item_variant_id', 'warehouse_id', 'location_id', 'qty_on_hand'])
+                    ->map(fn ($sl) => [
+                        'warehouse_code' => $sl->warehouse?->code ?? '—',
+                        'location_code'  => $sl->location?->code  ?? '—',
+                        'qty'            => (float) $sl->qty_on_hand,
+                    ]);
+                $stockLocationMap[$vid] = $locs->values()->all();
+            }
+        }
+
         // Auto-approve countdown (hours remaining)
         $hoursUntilAutoApprove = null;
         if ($gr->status === 'pending_supervisor' && $gr->inspected_at) {
@@ -240,11 +259,12 @@ class GoodsReceiptController extends Controller
         }
 
         return Inertia::render('GoodsReceipt/Show', [
-            'gr'         => $this->formatGrDetail($gr),
-            'warehouses' => $warehouses,
-            'operators'  => $operators,
-            'userRole'   => $role,
-            'userId'     => $user->id,
+            'gr'               => $this->formatGrDetail($gr),
+            'warehouses'       => $warehouses,
+            'operators'        => $operators,
+            'stockLocationMap' => $stockLocationMap,
+            'userRole'         => $role,
+            'userId'           => $user->id,
             'hoursUntilAutoApprove' => $hoursUntilAutoApprove,
         ]);
     }

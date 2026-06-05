@@ -299,11 +299,14 @@ function lastTaken(emp) {
     return `${name} — ${d}`
 }
 
-// ── Available LVs (filter out those already assigned to this employee) ────
+// ── Available LVs (filter out those already assigned to this employee or occupied) ────
 const availableLvsForAssign = computed(() => {
     if (!props.vehiclesForDept) return []
     const myLvIds = new Set(currentEmpLvs.value.map(v => v.id))
-    return props.vehiclesForDept.filter(v => !myLvIds.has(v.id))
+    return props.vehiclesForDept.filter(v =>
+        !myLvIds.has(v.id) &&
+        (!v.driver_id || v.driver_id === editingId.value)
+    )
 })
 
 // ── Position / Login helpers ──────────────────────────────────────────────
@@ -631,7 +634,6 @@ const currentEmpHasLogin = computed(() => {
                   <option :value="null">{{ $t('emp.lvSelectPh') }}</option>
                   <option v-for="v in availableLvsForAssign" :key="v.id" :value="v.id">
                     {{ v.lv_number }}
-                    <template v-if="v.driver_id"> ({{ $t('emp.lvHasDriver') }})</template>
                   </option>
                 </select>
                 <button type="button" class="btn-ghost lv-assign-btn"

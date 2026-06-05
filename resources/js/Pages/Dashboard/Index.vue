@@ -141,34 +141,34 @@ function doReorder() {
       <Link v-if="props.adminDeptStats.pendingRequests > 0"
         :href="route('employees.index')"
         class="dept-req-chip">
-        📩 {{ props.adminDeptStats.pendingRequests }} permintaan employee menunggu tindakan
+        📩 {{ $t('dash.deptPendingReq', { n: props.adminDeptStats.pendingRequests }) }}
       </Link>
 
       <div class="dash-row cards5">
         <div class="stat b-blue">
           <div class="stat-num">{{ props.adminDeptStats.total }}</div>
-          <div class="stat-lbl">Total GI</div>
-          <div class="stat-sub">Semua GI departemen</div>
+          <div class="stat-lbl">{{ $t('dash.deptTotalGI') }}</div>
+          <div class="stat-sub">{{ $t('dash.deptTotalGISub') }}</div>
         </div>
         <div class="stat b-green">
           <div class="stat-num">{{ props.adminDeptStats.completed }}</div>
-          <div class="stat-lbl">Selesai</div>
-          <div class="stat-sub">GI telah diselesaikan</div>
+          <div class="stat-lbl">{{ $t('dash.deptCompleted') }}</div>
+          <div class="stat-sub">{{ $t('dash.deptCompletedSub') }}</div>
         </div>
         <div class="stat b-orange">
           <div class="stat-num">{{ props.adminDeptStats.inProgress }}</div>
-          <div class="stat-lbl">Dalam Proses</div>
-          <div class="stat-sub">Sedang berjalan</div>
+          <div class="stat-lbl">{{ $t('dash.deptInProgress') }}</div>
+          <div class="stat-sub">{{ $t('dash.deptInProgressSub') }}</div>
         </div>
         <div class="stat b-amber">
           <div class="stat-num">{{ props.adminDeptStats.draft }}</div>
-          <div class="stat-lbl">Draft</div>
-          <div class="stat-sub">Belum disubmit</div>
+          <div class="stat-lbl">{{ $t('dash.deptDraft') }}</div>
+          <div class="stat-sub">{{ $t('dash.deptDraftSub') }}</div>
         </div>
         <div class="stat b-red">
           <div class="stat-num">{{ props.adminDeptStats.rejected }}</div>
-          <div class="stat-lbl">Ditolak</div>
-          <div class="stat-sub">GI yang ditolak</div>
+          <div class="stat-lbl">{{ $t('dash.deptRejected') }}</div>
+          <div class="stat-sub">{{ $t('dash.deptRejectedSub') }}</div>
         </div>
       </div>
     </section>

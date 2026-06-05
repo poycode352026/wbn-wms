@@ -192,8 +192,8 @@ class OperatorController extends Controller
         NotificationService::send(
             $goodsIssue->requested_by,
             'GI_READY_PICKUP',
-            "Barang Siap: {$goodsIssue->gi_number}",
-            "Barang Anda sudah disiapkan di staging area. Datang ke gudang dan tunjukkan barcode.",
+            "Ready for Pickup: {$goodsIssue->gi_number}",
+            "Your items have been prepared in the staging area. Please visit the warehouse to pick them up.",
             [
                 'gi_id'     => $goodsIssue->id,
                 'gi_number' => $goodsIssue->gi_number,
@@ -202,8 +202,8 @@ class OperatorController extends Controller
         );
 
         return redirect()
-            ->route('operator.scan-detail', $goodsIssue->id)
-            ->with('success', 'Barang siap! Informasikan ke requester untuk datang ambil.');
+            ->route('operator.scan-list')
+            ->with('success', 'Items ready! Notify the requester to come and collect.');
     }
 
     // ── Confirm Pickup: ready_to_pickup + photo evidence → completed ───────────
@@ -296,8 +296,8 @@ class OperatorController extends Controller
         NotificationService::send(
             $goodsIssue->requested_by,
             'GI_COMPLETED',
-            "GI Selesai: {$goodsIssue->gi_number}",
-            "Barang GI {$goodsIssue->gi_number} telah berhasil diambil. Terima kasih.",
+            "GI Completed: {$goodsIssue->gi_number}",
+            "Items from GI {$goodsIssue->gi_number} have been successfully handed over. Thank you.",
             [
                 'gi_id'     => $goodsIssue->id,
                 'gi_number' => $goodsIssue->gi_number,
@@ -307,7 +307,7 @@ class OperatorController extends Controller
 
         return redirect()
             ->route('operator.scan-list')
-            ->with('success', "GI {$goodsIssue->gi_number} selesai — barang diserahkan!");
+            ->with('success', "GI {$goodsIssue->gi_number} completed — items handed over!");
     }
 
     // ── History: completed/rejected GIs handled by this operator ──────────────

@@ -66,6 +66,7 @@ class DashboardController extends Controller
         // other roles: completed GR + GI only
         if ($role === 'admin_dept' && $user->department_id) {
             $recentTx = GoodsIssue::where('department_id', $user->department_id)
+                ->whereIn('status', ['completed', 'rejected'])
                 ->withCount('items')
                 ->orderByDesc('updated_at')
                 ->limit(10)

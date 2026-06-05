@@ -357,24 +357,24 @@ function deleteGI() {
         <div class="sh-gi-number">{{ gi.gi_number }}</div>
         <span class="sh-status-badge" :style="statusStyle(gi.status)">{{ statusLabel(gi.status) }}</span>
         <span v-if="gi.department" class="sh-dept-chip">{{ gi.department.code }}</span>
-        <!-- Delete button — only for draft GI, only requester or super_admin -->
-        <button
-          v-if="gi.status === 'draft' && (userRole === 'super_admin' || gi.requested_by?.id === userId)"
-          type="button"
-          class="sh-delete-gi-btn"
-          :disabled="deleting"
-          @click="deleteGI"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6l-1 14H6L5 6"/>
-            <path d="M10 11v6"/><path d="M14 11v6"/>
-            <path d="M9 6V4h6v2"/>
-          </svg>
-          {{ deleting ? '…' : 'Hapus GI' }}
-        </button>
       </div>
+      <!-- Delete button on far right -->
+      <button
+        v-if="gi.status === 'draft' && (userRole === 'super_admin' || gi.requested_by?.id === userId)"
+        type="button"
+        class="sh-delete-gi-btn sh-delete-gi-right"
+        :disabled="deleting"
+        @click="deleteGI"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6"/><path d="M14 11v6"/>
+          <path d="M9 6V4h6v2"/>
+        </svg>
+        {{ deleting ? '…' : $t('gi.deleteGI') }}
+      </button>
       <div class="sh-header-meta">
         <span class="sh-meta-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
@@ -978,6 +978,7 @@ function deleteGI() {
 .sh-delete-gi-btn { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:7px; border:1px solid rgba(239,68,68,.4); background:rgba(239,68,68,.07); color:#ef4444; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:background 150ms; }
 .sh-delete-gi-btn:hover:not(:disabled) { background:rgba(239,68,68,.14); }
 .sh-delete-gi-btn:disabled { opacity:.45; cursor:not-allowed; }
+.sh-delete-gi-right { margin-left: auto; }
 .sh-header-meta { display:flex; flex-wrap:wrap; gap:14px; align-items:center }
 .sh-meta-item   { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--fg-dim) }
 

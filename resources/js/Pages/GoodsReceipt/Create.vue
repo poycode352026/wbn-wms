@@ -56,7 +56,7 @@ function closeDropdown() {
 
 function filteredVariants(row) {
     const q = (row.query || '').trim().toLowerCase()
-    if (!q) return props.allVariants.slice(0, 8)
+    if (!q) return props.allVariants.slice(0, 20)
     return props.allVariants.filter(v =>
         v.sku.toLowerCase().includes(q) ||
         (v.name_en  && v.name_en.toLowerCase().includes(q))  ||
@@ -66,7 +66,7 @@ function filteredVariants(row) {
         (v.model    && v.model.toLowerCase().includes(q))    ||
         (v.size     && v.size.toLowerCase().includes(q))     ||
         (v.color    && v.color.toLowerCase().includes(q))
-    ).slice(0, 8)
+    ).slice(0, 20)
 }
 
 function selectVariant(row, v) {
@@ -585,7 +585,7 @@ function submit() {
 .cr-drop-fixed {
   background:var(--surface); border:1px solid var(--border-2);
   border-radius:9px; box-shadow:0 10px 32px rgba(0,0,0,.5);
-  overflow:hidden; max-height:220px; overflow-y:auto;
+  overflow:hidden; max-height:400px; overflow-y:auto;
 }
 .cr-opt { display:flex; flex-direction:column; gap:5px; padding:10px 14px; cursor:pointer; transition:background 120ms }
 .cr-opt:hover { background:rgba(139,92,246,.1) }
