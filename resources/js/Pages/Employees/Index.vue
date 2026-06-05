@@ -454,6 +454,16 @@ const currentEmpHasLogin = computed(() => {
                 <span v-if="overdueLvEmpIds?.includes(emp.id)" class="chip-overdue-lv" :title="$t('emp.overdueLvBadge')">
                   🚗 {{ $t('emp.overdueLvBadge') }}
                 </span>
+                <template v-if="(emp.driven_vehicles ?? emp.drivenVehicles)?.length">
+                  <span
+                    v-for="lv in (emp.driven_vehicles ?? emp.drivenVehicles)"
+                    :key="lv.id"
+                    class="chip-driver-lv"
+                    :title="'Driver: ' + (lv.lv_code ? lv.lv_code + '-' + lv.lv_number : lv.lv_number)"
+                  >
+                    🚗 {{ lv.lv_code ? lv.lv_code + '-' + lv.lv_number : lv.lv_number }}
+                  </span>
+                </template>
               </div>
             </td>
             <td>
@@ -868,6 +878,7 @@ const currentEmpHasLogin = computed(() => {
 /* Overdue badges */
 .chip-overdue-ppe { display:inline-block; font-size:10px; font-weight:700; background:rgba(245,158,11,.12); color:#d97706; padding:2px 6px; border-radius:12px; white-space:nowrap; }
 .chip-overdue-lv  { display:inline-block; font-size:10px; font-weight:700; background:rgba(59,130,246,.12); color:#3b82f6; padding:2px 6px; border-radius:12px; white-space:nowrap; }
+.chip-driver-lv   { display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:600; background:rgba(59,130,246,.14); color:#60a5fa; border:1px solid rgba(59,130,246,.28); padding:2px 7px; border-radius:999px; white-space:nowrap; }
 /* Pending requests panel */
 .pending-requests-panel { background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.25); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
 .pr-header { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }

@@ -103,6 +103,87 @@ function submit() {
                 </g>
                 <g class="truck-out" transform="translate(720,440)"><rect x="0" y="-10" width="36" height="14" fill="#f97316"/><rect x="-6" y="-6" width="14" height="10" fill="#1f2937"/><circle cx="2" cy="6" r="4" fill="#0a0f1a"/><circle cx="14" cy="6" r="4" fill="#0a0f1a"/><circle cx="26" cy="6" r="4" fill="#0a0f1a"/></g>
                 <g class="truck-out" style="animation-delay:-12s" transform="translate(420,475)"><rect x="0" y="-8" width="28" height="11" fill="#1e3a8a"/><rect x="-4" y="-5" width="10" height="8" fill="#0f1422"/><circle cx="2" cy="5" r="3" fill="#0a0f1a"/><circle cx="22" cy="5" r="3" fill="#0a0f1a"/></g>
+                <!-- ══ Mining Dump Truck (SMIL — pure SVG units, always visible) ══ -->
+                <g transform="translate(386,418)">
+                  <g>
+                    <animateTransform attributeName="transform" type="translate" from="-180 0" to="760 0" dur="55s" begin="-18s" repeatCount="indefinite"/>
+                    <!-- dump bed -->
+                    <rect x="-10" y="-50" width="112" height="50" fill="#fbbf24"/>
+                    <polygon points="-10,-50 102,-56 102,-50 -10,-50" fill="#d97706"/>
+                    <rect x="-18" y="-50" width="11" height="50" fill="#b45309"/>
+                    <!-- cabin -->
+                    <rect x="100" y="-66" width="54" height="66" rx="3" fill="#d97706"/>
+                    <polygon points="100,-66 154,-66 154,-52 100,-52" fill="#92400e"/>
+                    <rect x="108" y="-63" width="32" height="20" fill="#bfdbfe" opacity=".55" rx="2"/>
+                    <rect x="150" y="-34" width="8" height="14" fill="#fde68a" opacity=".9" rx="2"/>
+                    <!-- chassis -->
+                    <rect x="-18" y="-4" width="172" height="14" fill="#78350f"/>
+                    <!-- exhaust stack + smoke (SMIL relative to truck) -->
+                    <rect x="124" y="-84" width="8" height="22" fill="#4b5563" rx="1"/>
+                    <circle cx="128" cy="-90" r="6" fill="#9ca3af" opacity=".55"><animate attributeName="cy" values="-90;-110;-130" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values=".6;.3;0" dur="3s" repeatCount="indefinite"/><animate attributeName="r" values="6;10;14" dur="3s" repeatCount="indefinite"/></circle>
+                    <circle cx="128" cy="-90" r="5" fill="#9ca3af" opacity=".4"><animate attributeName="cy" values="-90;-108;-126" dur="3s" begin="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values=".4;.2;0" dur="3s" begin="1.5s" repeatCount="indefinite"/><animate attributeName="r" values="5;9;13" dur="3s" begin="1.5s" repeatCount="indefinite"/></circle>
+                    <!-- 6 wheels -->
+                    <circle cx="4"  cy="18" r="20" fill="#111827"/><circle cx="4"  cy="18" r="9" fill="#374151"/>
+                    <circle cx="30" cy="18" r="20" fill="#111827"/><circle cx="30" cy="18" r="9" fill="#374151"/>
+                    <circle cx="60" cy="18" r="20" fill="#111827"/><circle cx="60" cy="18" r="9" fill="#374151"/>
+                    <circle cx="112" cy="18" r="20" fill="#111827"/><circle cx="112" cy="18" r="9" fill="#374151"/>
+                    <circle cx="138" cy="18" r="20" fill="#111827"/><circle cx="138" cy="18" r="9" fill="#374151"/>
+                  </g>
+                </g>
+                <!-- ══ Wheel Loader (SMIL right→left) ══ -->
+                <g transform="translate(1014,400)">
+                  <g>
+                    <animateTransform attributeName="transform" type="translate" from="0 0" to="-720 0" dur="70s" begin="-28s" repeatCount="indefinite"/>
+                    <!-- body -->
+                    <rect x="-10" y="-26" width="58" height="26" fill="#d97706"/>
+                    <rect x="10" y="-24" width="28" height="14" fill="#bfdbfe" opacity=".45" rx="1"/>
+                    <rect x="44" y="-14" width="8" height="7" fill="#fde68a" opacity=".8"/>
+                    <!-- articulated front section -->
+                    <rect x="-68" y="-22" width="62" height="22" fill="#f59e0b"/>
+                    <!-- bucket -->
+                    <polygon points="-80,-22 -68,-22 -68,0 -92,0" fill="#b45309"/>
+                    <rect x="-92" y="0" width="28" height="7" fill="#92400e"/>
+                    <!-- chassis -->
+                    <rect x="-92" y="3" width="150" height="10" fill="#78350f"/>
+                    <!-- wheels -->
+                    <circle cx="-60" cy="20" r="22" fill="#111827"/><circle cx="-60" cy="20" r="10" fill="#374151"/>
+                    <circle cx="38"  cy="20" r="22" fill="#111827"/><circle cx="38"  cy="20" r="10" fill="#374151"/>
+                  </g>
+                </g>
+                <!-- ══ Tower Crane (static silhouette) ══ -->
+                <g transform="translate(950,200)" opacity=".75">
+                  <!-- mast -->
+                  <rect x="-5" y="0" width="10" height="200" fill="#1e293b"/>
+                  <!-- main jib (left) -->
+                  <rect x="-140" y="-4" width="148" height="8" fill="#334155"/>
+                  <!-- counter jib (right) -->
+                  <rect x="5" y="-3" width="70" height="6" fill="#334155"/>
+                  <!-- peak stays -->
+                  <line x1="-140" y1="-1" x2="-4"  y2="-38" stroke="#475569" stroke-width="2"/>
+                  <line x1="75"   y1="-1" x2="5"   y2="-38" stroke="#475569" stroke-width="2"/>
+                  <rect x="-7" y="-44" width="14" height="10" fill="#334155"/>
+                  <!-- hook rope -->
+                  <line x1="-70" y1="-1" x2="-70" y2="60" stroke="#64748b" stroke-width="1.5"/>
+                  <rect x="-76" y="58" width="12" height="14" fill="#475569"/>
+                  <!-- counterweight -->
+                  <rect x="34" y="2" width="36" height="20" fill="#1e293b"/>
+                  <!-- warning light -->
+                  <circle cx="0" cy="-46" r="4" fill="#ef4444"><animate attributeName="opacity" values="1;0.15;1" dur="2.2s" repeatCount="indefinite"/></circle>
+                  <!-- crane rope gentle sway -->
+                  <animateTransform attributeName="transform" type="rotate" values="-1 -5 0;1 -5 0;-1 -5 0" dur="8s" repeatCount="indefinite" additive="sum"/>
+                </g>
+                <!-- ══ Birds in sky ══ -->
+                <g transform="translate(450,218)" opacity=".65">
+                  <g><animateTransform attributeName="transform" type="translate" from="-200 0" to="700 0" dur="42s" begin="-8s" repeatCount="indefinite"/>
+                    <path d="M-14,-4 Q-7,-9 0,-4 Q7,-9 14,-4" fill="none" stroke="#374151" stroke-width="2.5" stroke-linecap="round"/>
+                  </g>
+                </g>
+                <g transform="translate(530,236)" opacity=".5">
+                  <g><animateTransform attributeName="transform" type="translate" from="-100 10" to="800 10" dur="58s" begin="-22s" repeatCount="indefinite"/>
+                    <path d="M-9,-3 Q-4.5,-7 0,-3 Q4.5,-7 9,-3" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M16,-5 Q20,-9 24,-5" fill="none" stroke="#374151" stroke-width="1.5" stroke-linecap="round"/>
+                  </g>
+                </g>
                 <g transform="translate(880,340)" opacity=".85"><polygon points="0,0 -16,60 16,60" fill="#0f1422"/><line x1="0" y1="0" x2="0" y2="60" stroke="#222a3e"/><line x1="-12" y1="50" x2="12" y2="50" stroke="#222a3e"/><line x1="-8" y1="35" x2="8" y2="35" stroke="#222a3e"/><circle cx="0" cy="-2" r="3" fill="#f97316"/></g>
                 <rect x="386" y="380" width="628" height="160" fill="#7a5a3a" opacity=".25"/>
               </g>
@@ -151,6 +232,7 @@ function submit() {
               <g transform="translate(14,200)"><rect width="200" height="76" fill="url(#cratGrad2)"/></g>
               <g transform="translate(14,348)"><rect width="120" height="82" fill="url(#cratGrad)"/></g>
               <g transform="translate(146,360)"><rect width="68" height="70" fill="url(#cratGrad2)"/></g>
+              <g font-family="JetBrains Mono, monospace" font-size="8" fill="#f59e0b" opacity=".65"><text x="16" y="54">D-01</text><text x="16" y="194">E-03</text><text x="16" y="340">F-08</text></g>
             </g>
 
             <!-- floor -->
@@ -229,6 +311,95 @@ function submit() {
             <!-- pylons -->
             <g transform="translate(700,920)"><polygon points="0,0 -10,30 10,30" fill="#f97316"/><rect x="-7" y="10" width="14" height="3" fill="#fff"/><rect x="-12" y="30" width="24" height="4" fill="#1a2236"/></g>
             <g transform="translate(1180,930)"><polygon points="0,0 -10,30 10,30" fill="#f97316"/><rect x="-7" y="10" width="14" height="3" fill="#fff"/><rect x="-12" y="30" width="24" height="4" fill="#1a2236"/></g>
+
+            <!-- Worker E — scanner / inventory check (green vest) -->
+            <g class="worker" transform="translate(648,854)">
+              <ellipse cx="0" cy="56" rx="13" ry="3" fill="rgba(0,0,0,.45)"/>
+              <g class="worker-bob" style="animation-delay:-.4s">
+                <rect x="-5" y="32" width="5" height="22" rx="1" fill="#1f2937"/>
+                <rect x="0" y="32" width="5" height="22" rx="1" fill="#1f2937"/>
+                <rect x="-9" y="14" width="18" height="20" rx="2" fill="#16a34a"/>
+                <rect x="-9" y="22" width="18" height="2" fill="#fff" opacity=".7"/>
+                <rect x="6" y="16" width="4" height="14" rx="1" fill="#1f2937"/>
+                <rect x="8" y="10" width="14" height="10" rx="1" fill="#374151"/>
+                <rect x="9" y="11" width="12" height="7" rx="1" fill="#60a5fa" opacity=".6"/>
+                <circle cx="0" cy="6" r="6" fill="#c8a079"/>
+                <path d="M-7,4 Q0,-5 7,4 Z" fill="#22c55e"/><rect x="-8" y="2" width="16" height="2" fill="#22c55e"/>
+              </g>
+            </g>
+
+            <!-- Worker F — supervisor with clipboard (near right rack) -->
+            <g class="worker" transform="translate(1375,856)">
+              <ellipse cx="0" cy="56" rx="14" ry="3" fill="rgba(0,0,0,.45)"/>
+              <g class="lift-torso" style="animation-duration:5s;animation-delay:-.9s">
+                <rect x="-5" y="32" width="5" height="22" rx="1" fill="#1f2937"/>
+                <rect x="0" y="32" width="5" height="22" rx="1" fill="#1f2937"/>
+                <rect x="-9" y="14" width="18" height="20" rx="2" fill="#ca8a04"/>
+                <rect x="-9" y="22" width="18" height="2" fill="#fff" opacity=".7"/>
+                <rect x="-12" y="16" width="4" height="14" rx="1" fill="#1f2937"/>
+                <rect x="6" y="10" width="16" height="22" rx="1" fill="#374151"/>
+                <rect x="7" y="11" width="14" height="20" rx="1" fill="#f8fafc" opacity=".8"/>
+                <rect x="8" y="13" width="10" height="1.5" fill="#9ca3af"/><rect x="8" y="17" width="10" height="1.5" fill="#9ca3af"/>
+                <rect x="8" y="21" width="8" height="1.5" fill="#9ca3af"/><rect x="8" y="25" width="9" height="1.5" fill="#9ca3af"/>
+                <rect x="7" y="9" width="5" height="3" rx="1" fill="#94a3b8"/>
+                <circle cx="0" cy="6" r="6" fill="#c8a079"/>
+                <path d="M-7,4 Q0,-5 7,4 Z" fill="#fbbf24"/><rect x="-8" y="2" width="16" height="2" fill="#fbbf24"/>
+              </g>
+            </g>
+
+            <!-- Fire extinguisher (wall-mounted, left side) -->
+            <g transform="translate(357,793)">
+              <rect x="-6" y="-4" width="12" height="5" rx="2" fill="#374151"/>
+              <rect x="-4" y="-58" width="8" height="54" rx="4" fill="#dc2626"/>
+              <rect x="-5" y="-62" width="10" height="8" rx="2" fill="#b91c1c"/>
+              <line x1="0" y1="-68" x2="0" y2="-62" stroke="#9ca3af" stroke-width="2"/>
+              <rect x="-5" y="-73" width="10" height="4" rx="2" fill="#6b7280"/>
+              <rect x="-3" y="-44" width="6" height="18" rx="1" fill="#fff" opacity=".2"/>
+            </g>
+
+            <!-- Hand pallet jack (center-left floor) -->
+            <g transform="translate(496,858)">
+              <rect x="-6" y="-5" width="56" height="5" rx="1" fill="#4b5563"/>
+              <rect x="-6" y="4" width="56" height="5" rx="1" fill="#4b5563"/>
+              <line x1="50" y1="0" x2="38" y2="-36" stroke="#374151" stroke-width="5" stroke-linecap="round"/>
+              <rect x="30" y="-40" width="16" height="5" rx="2" fill="#374151"/>
+              <rect x="-6" y="7" width="8" height="5" fill="#1f2937"/><rect x="42" y="7" width="8" height="5" fill="#1f2937"/>
+              <circle cx="-2" cy="16" r="8" fill="#111827"/><circle cx="8" cy="16" r="8" fill="#111827"/>
+              <circle cx="46" cy="16" r="8" fill="#111827"/>
+            </g>
+
+            <!-- Small cone cluster (safety zone center-floor) -->
+            <g transform="translate(810,935)">
+              <polygon points="0,0 -7,20 7,20" fill="#f97316"/><rect x="-5" y="7" width="10" height="2" fill="#fff" opacity=".8"/><rect x="-9" y="20" width="18" height="3" fill="#1a2236"/>
+              <g transform="translate(18,4)"><polygon points="0,0 -7,20 7,20" fill="#f97316"/><rect x="-5" y="7" width="10" height="2" fill="#fff" opacity=".8"/><rect x="-9" y="20" width="18" height="3" fill="#1a2236"/></g>
+              <g transform="translate(36,0)"><polygon points="0,0 -7,20 7,20" fill="#f97316"/><rect x="-5" y="7" width="10" height="2" fill="#fff" opacity=".8"/><rect x="-9" y="20" width="18" height="3" fill="#1a2236"/></g>
+            </g>
+
+            <!-- Drums / barrels (right wall) -->
+            <g transform="translate(1548,832)">
+              <ellipse cx="0" cy="-48" rx="16" ry="5" fill="#334155"/>
+              <rect x="-16" y="-48" width="32" height="48" fill="#1e293b"/>
+              <ellipse cx="0" cy="0" rx="16" ry="5" fill="#0f172a"/>
+              <line x1="-16" y1="-32" x2="16" y2="-32" stroke="#334155" stroke-width="1.5"/>
+              <line x1="-16" y1="-16" x2="16" y2="-16" stroke="#334155" stroke-width="1.5"/>
+              <rect x="-10" y="-42" width="20" height="26" rx="2" fill="#f97316" opacity=".6"/>
+            </g>
+            <g transform="translate(1578,840)">
+              <ellipse cx="0" cy="-42" rx="13" ry="4.5" fill="#374155"/>
+              <rect x="-13" y="-42" width="26" height="42" fill="#253044"/>
+              <ellipse cx="0" cy="0" rx="13" ry="4.5" fill="#0f172a"/>
+              <line x1="-13" y1="-28" x2="13" y2="-28" stroke="#334155" stroke-width="1.5"/>
+              <line x1="-13" y1="-14" x2="13" y2="-14" stroke="#334155" stroke-width="1.5"/>
+            </g>
+
+            <!-- Extra pallet with boxes (center area) -->
+            <g transform="translate(650,840)">
+              <rect width="100" height="10" y="34" fill="#7a4f24"/><rect width="100" height="4" y="48" fill="#5a3a1a"/>
+              <rect width="4" height="16" x="3" y="30" fill="#5a3a1a"/><rect width="4" height="16" x="48" y="30" fill="#5a3a1a"/><rect width="4" height="16" x="93" y="30" fill="#5a3a1a"/>
+              <rect width="90" height="30" x="5" y="0" fill="url(#cratGrad2)"/>
+              <line x1="5" y1="15" x2="95" y2="15" stroke="#222a3e" stroke-width="1"/>
+              <line x1="50" y1="0" x2="50" y2="30" stroke="#222a3e" stroke-width="1"/>
+            </g>
           </svg>
 
           <!-- beam cones -->
@@ -263,6 +434,15 @@ function submit() {
           </div>
 
           <div class="dust"></div>
+          <div class="dust dust2"></div>
+          <div class="aurora-floor" aria-hidden="true"></div>
+          <div class="particles" aria-hidden="true">
+            <span class="p p1"></span>
+            <span class="p p2"></span>
+            <span class="p p3"></span>
+            <span class="p p4"></span>
+            <span class="p p5"></span>
+          </div>
           <div class="vignette"></div>
         </div><!-- /scene -->
 
@@ -500,4 +680,39 @@ function submit() {
 .wms-login .sys-tag{position:absolute;top:32px;left:32px;z-index:5;display:inline-flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;background:var(--card-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--card-border);font-size:11px;color:var(--fg-muted);font-family:"JetBrains Mono",ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;}
 .wms-login .sys-tag .pip{width:6px;height:6px;border-radius:2px;background:var(--orange-500);box-shadow:0 0 8px var(--orange-500);}
 @media(max-width:860px){.wms-login .login-wrap{justify-content:center;}.wms-login .card{width:100%;max-width:440px;}.wms-login .sys-tag{display:none;}}
+
+/* ── Card entrance animation ── */
+@keyframes wmsCardIn{from{opacity:0;transform:translate3d(48px,0,0) scale(.96);filter:blur(4px);}to{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0);}}
+.wms-login .card:not(.shake){animation:wmsCardIn .9s cubic-bezier(.16,1,.3,1) both;}
+
+/* ── Card gloss shimmer ── */
+.wms-login .card::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.055) 50%,transparent 65%);background-size:200% 100%;animation:wmsCardShimmer 8s ease-in-out 1.8s infinite;pointer-events:none;z-index:0;}
+@keyframes wmsCardShimmer{0%,100%{background-position:-100% 0;}40%,60%{background-position:200% 0;}}
+
+/* ── Sys-tag slide-in from left ── */
+@keyframes wmsSysTagIn{from{opacity:0;transform:translate3d(-24px,0,0);}to{opacity:1;transform:translate3d(0,0,0);}}
+.wms-login .sys-tag{animation:wmsSysTagIn .7s cubic-bezier(.16,1,.3,1) .35s both;}
+
+/* ── Brand logo glow pulse ── */
+@keyframes wmsBrandPulse{0%,100%{box-shadow:0 8px 22px -10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.6);}50%{box-shadow:0 8px 28px -6px rgba(249,115,22,.22),0 0 18px -4px rgba(249,115,22,.18),inset 0 1px 0 rgba(255,255,255,.6);}}
+.wms-login .brand-logo{animation:wmsBrandPulse 5s ease-in-out 1s infinite;}
+
+/* ── Dust layer 2 (moves opposite direction) ── */
+.wms-login .dust2{animation:wmsDustDrift2 36s linear infinite;opacity:.3;}
+@keyframes wmsDustDrift2{0%{transform:translate3d(0,0,0);}100%{transform:translate3d(28px,-14px,0);}}
+
+/* ── Aurora floor glow ── */
+.wms-login .aurora-floor{position:absolute;bottom:0;left:0;right:0;height:220px;background:radial-gradient(ellipse at 25% 100%,rgba(59,130,246,.14),transparent 55%),radial-gradient(ellipse at 72% 100%,rgba(249,115,22,.11),transparent 55%);animation:wmsAurora 9s ease-in-out infinite;pointer-events:none;}
+@keyframes wmsAurora{0%,100%{opacity:.7;transform:scaleX(1);}50%{opacity:1;transform:scaleX(1.06);}}
+.wms-login[data-theme="light"] .aurora-floor{opacity:.45;}
+
+/* ── Floating particles ── */
+.wms-login .particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.wms-login .p{position:absolute;border-radius:50%;animation:wmsParticleRise linear infinite;}
+.wms-login .p1{width:3px;height:3px;background:rgba(251,191,36,.65);left:12%;bottom:18%;animation-duration:13s;animation-delay:0s;}
+.wms-login .p2{width:2px;height:2px;background:rgba(249,115,22,.55);left:42%;bottom:28%;animation-duration:17s;animation-delay:-6s;}
+.wms-login .p3{width:4px;height:4px;background:rgba(59,130,246,.45);left:63%;bottom:14%;animation-duration:21s;animation-delay:-10s;}
+.wms-login .p4{width:2px;height:2px;background:rgba(251,191,36,.50);left:78%;bottom:24%;animation-duration:15s;animation-delay:-4s;}
+.wms-login .p5{width:3px;height:3px;background:rgba(16,185,129,.45);left:28%;bottom:35%;animation-duration:19s;animation-delay:-8s;}
+@keyframes wmsParticleRise{0%{transform:translateY(0) scale(1);opacity:.9;}50%{opacity:.4;}100%{transform:translateY(-65vh) scale(.2);opacity:0;}}
 </style>
