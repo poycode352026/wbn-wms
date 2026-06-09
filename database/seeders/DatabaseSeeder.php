@@ -76,7 +76,7 @@ class DatabaseSeeder extends Seeder
             'is_active'         => true,
         ]);
 
-        // ── Admin Dept (IT) ────────────────────────────────────────────────────
+        // ── Admin Dept  ────────────────────────────────────────────────────
         User::create([
             'employee_id'       => '11111111',
             'name'              => 'Frediyodi',
@@ -84,11 +84,11 @@ class DatabaseSeeder extends Seeder
             'email_verified_at' => now(),
             'password'          => Hash::make('password'),
             'role'              => 'admin_dept',
-            'department_id'     => $deptIT->id,
+            // 'department_id'     => $deptIT->id,
             'is_active'         => true,
         ]);
 
-        // ── Manager Dept (IT) ──────────────────────────────────────────────────
+        // ── Manager Dept ──────────────────────────────────────────────────
         User::create([
             'employee_id'       => '22222222',
             'name'              => 'Salim Lim',
@@ -96,7 +96,7 @@ class DatabaseSeeder extends Seeder
             'email_verified_at' => now(),
             'password'          => Hash::make('22222222'),
             'role'              => 'manager_dept',
-            'department_id'     => $deptIT->id,
+            // 'department_id'     => $deptIT->id,
             'is_active'         => true,
         ]);
 
