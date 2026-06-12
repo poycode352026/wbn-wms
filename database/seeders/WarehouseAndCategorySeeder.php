@@ -44,7 +44,7 @@ class WarehouseAndCategorySeeder extends Seeder
         // KM17 racks
         $km17Racks = [];
         for ($rack = 1; $rack <= 12; $rack++) {
-            foreach (range('A', 'F') as $shelf) {
+            foreach (range('A', 'I') as $shelf) {
                 for ($level = 1; $level <= 4; $level++) {
 
                     $rackCode = str_pad($rack, 2, '0', STR_PAD_LEFT);
@@ -90,7 +90,7 @@ class WarehouseAndCategorySeeder extends Seeder
 ]);
 
         // Rack Numbers
-        $generalRacks = [15, 8, 19, 13, 14];
+        $generalRacks = [15, 8, 19, 13, 14,18];
 
         foreach ($generalRacks as $rack) {
             foreach (['A', 'B'] as $level) {
@@ -112,6 +112,7 @@ class WarehouseAndCategorySeeder extends Seeder
             ['code' => 'EQUIPMENT',  'prefix' => 'EQM',  'name_en' => 'Equipment',                   'name_id' => 'Peralatan',              'name_zh' => '设备'],
             ['code' => 'CONSUMABLE', 'prefix' => 'CSMB', 'name_en' => 'Consumable',                  'name_id' => 'Barang Habis Pakai',     'name_zh' => '耗材'],
             ['code' => 'MECHANICAL', 'prefix' => 'MCNC', 'name_en' => 'Mechanical',                  'name_id' => 'Mekanikal',              'name_zh' => '机械'],
+            ['code' => 'CHEMICAL', 'prefix' => 'CMC', 'name_en' => 'Chemical',                    'name_id' => 'Bahan Kimia',            'name_zh' => '化学品'],
         ];
 
         foreach ($categories as $cat) {
