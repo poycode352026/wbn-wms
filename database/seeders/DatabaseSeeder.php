@@ -84,7 +84,6 @@ class DatabaseSeeder extends Seeder
             'email_verified_at' => now(),
             'password'          => Hash::make('password'),
             'role'              => 'admin_dept',
-            'department_id'     =>'user',
             'is_active'         => true,
         ]);
 
@@ -96,7 +95,6 @@ class DatabaseSeeder extends Seeder
             'email_verified_at' => now(),
             'password'          => Hash::make('22222222'),
             'role'              => 'manager_dept',
-            'department_id'     => 'user',
             'is_active'         => true,
         ]);
 
