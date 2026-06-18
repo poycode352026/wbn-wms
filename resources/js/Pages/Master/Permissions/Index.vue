@@ -21,7 +21,7 @@ const ROLES = [
 const MODULES = [
     { key: 'system',    cls: 'grp-blue',   items: ['users','departments','permissions'] },
     { key: 'warehouse', cls: 'grp-orange', items: ['warehouses','rackMgmt','fleetMgmt','employees'] },
-    { key: 'inventory', cls: 'grp-green',  items: ['itemMaster','stockInput','goodsReceipt','goodsIssue'] },
+    { key: 'inventory', cls: 'grp-green',  items: ['itemMaster','stockInput','goodsReceipt','goodsIssue','goodsRequest'] },
     { key: 'reports',   cls: 'grp-purple', items: ['inventoryReport','transactionLog','auditTrail'] },
 ]
 
@@ -45,6 +45,7 @@ const DEFAULTS = {
         stockInput:      [1,1,1,1,null],
         goodsReceipt:    [1,0,1,0,null],
         goodsIssue:      [1,0,1,0,null],
+        goodsRequest:    [1,1,0,1,null],
         inventoryReport: [1,0,0,0,null],
         transactionLog:  [1,0,0,0,null],
     },
@@ -63,6 +64,7 @@ const DEFAULTS = {
         stockInput:      [1,0,0,0,null],
         goodsReceipt:    [1,0,0,0,null],
         goodsIssue:      [1,0,0,0,1],
+        goodsRequest:    [1,0,0,0,null],
         inventoryReport: [1,0,0,0,null],
         transactionLog:  [1,0,0,0,null],
     },
@@ -77,6 +79,7 @@ const DEFAULTS = {
         stockInput:      [1,0,0,0,null],
         goodsReceipt:    [1,0,0,0,null],
         goodsIssue:      [1,0,0,0,1],
+        goodsRequest:    [1,0,0,0,null],
         inventoryReport: [1,0,0,0,null],
         transactionLog:  [1,0,0,0,null],
         auditTrail:      [1,0,0,0,null],
@@ -90,6 +93,7 @@ const DEFAULTS = {
         stockInput:      [1,0,0,0,null],
         goodsReceipt:    [1,0,0,0,1],
         goodsIssue:      [1,0,0,0,1],
+        goodsRequest:    [1,1,0,1,null],
         inventoryReport: [1,0,0,0,null],
         transactionLog:  [1,0,0,0,null],
     },

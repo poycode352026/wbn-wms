@@ -32,7 +32,7 @@ function canDo(module, action = 'view') {
 // Sidebar section visibility helpers
 const showSystem    = computed(() => canDo('users') || canDo('departments') || role.value === 'super_admin')
 const showWarehouse = computed(() => canDo('warehouses') || canDo('locations') || canDo('vehicles') || canDo('employees'))
-const showInventory = computed(() => canDo('itemMaster') || canDo('goodsReceipt') || canDo('goodsIssue'))
+const showInventory = computed(() => canDo('itemMaster') || canDo('goodsReceipt') || canDo('goodsIssue') || canDo('goodsRequest'))
 const showReports   = computed(() => canDo('inventoryReport') || canDo('transactionLog'))
 
 function stopImpersonate() { router.post(route('users.stop-impersonate')) }
@@ -234,6 +234,10 @@ function logout() { router.post(route('logout')) }
         <Link v-if="canDo('goodsIssue')" class="nav-item" :class="{ active: route().current('gi.*') }" :href="route('gi.index')" :data-tip="$t('menu.goodsIssue')">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><path d="m16 15-3 3-3-3"/></svg>
           <span class="lbl">{{ $t('menu.goodsIssue') }}</span><span class="lbl-badge">GI</span>
+        </Link>
+        <Link v-if="canDo('goodsRequest')" class="nav-item" :class="{ active: route().current('grq.*') }" :href="route('grq.index')" :data-tip="$t('menu.goodsRequest')">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span class="lbl">{{ $t('menu.goodsRequest') }}</span><span class="lbl-badge">GRQ</span>
         </Link>
         <!-- Operator Scan — visible to operator + wh_admin -->
         <Link v-if="role === 'operator' || role === 'wh_admin'" class="nav-item" :class="{ active: route().current('operator.*') }" :href="route('operator.scan-list')" :data-tip="$t('menu.operatorScan')">

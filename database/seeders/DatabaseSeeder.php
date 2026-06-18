@@ -76,11 +76,11 @@ class DatabaseSeeder extends Seeder
 
         // ── WH Manager ─────────────────────────────────────────────────────────
         User::create([
-            'employee_id'       => '6260305003',
+            'employee_id'       => '660006618',
             'name'              => 'Bill Chen',
             'email'             => 'bill.chen@gmail.com',
             'email_verified_at' => now(),
-            'password'          => Hash::make('5003@wbn.co.id'),
+            'password'          => Hash::make('6618@wbn.co.id'),
             'role'              => 'wh_manager',
             'is_active'         => true,
         ]);
@@ -136,16 +136,17 @@ class DatabaseSeeder extends Seeder
 
         // ── Manager Dept ──────────────────────────────────────────────────
         User::create([
-            'employee_id'       => '11111111',
+            'employee_id'       => '21900781',
             'name'              => 'Salim Lim',
             'email'             => 'salim.lim@gmail.com',
             'email_verified_at' => now(),
-            'password'          => Hash::make('1111@wbn.co.id'),
+            'password'          => Hash::make('0781@wbn.co.id'),
             'role'              => 'manager_dept',
             'is_active'         => true,
         ]);
 
         $this->call([
+            DepartmentSeeder::class,
             WarehouseAndCategorySeeder::class,
             RolePermissionSeeder::class,
         ]);

@@ -66,8 +66,18 @@ class StockInputImportReader implements ToCollection, WithHeadingRow, SkipsEmpty
             // Konversi qty ke base UOM
             $qtyBase = (float) $qty;
 
-            if ($inputUom !== '' && $altUom !== '' && $inputUom === $altUom) {
-                // Input dalam alt UOM → konversi ke base
+            // Use DB values for UOM comparison — file columns may be stale or misconfigured
+            $dbBaseUom  = strtoupper(trim($variant->item?->base_uom ?? ''));
+            $dbAltUom   = strtoupper(trim($variant->item?->alt_uom  ?? ''));
+            $inputUomUp = strtoupper($inputUom);
+
+            // Convert only when: input matches the DB alt_uom AND it's not the same as base_uom
+            if (
+                $inputUomUp !== ''
+                && $dbAltUom !== ''
+                && $inputUomUp === $dbAltUom
+                && $inputUomUp !== $dbBaseUom
+            ) {
                 $conv = (float) ($altConv ?? $variant->item?->alt_uom_conversion ?? 0);
                 if ($conv <= 0) {
                     $this->errors[] = "Baris {$rowNum}: alt_uom_conversion tidak valid untuk SKU '{$sku}'.";
@@ -76,7 +86,7 @@ class StockInputImportReader implements ToCollection, WithHeadingRow, SkipsEmpty
                 }
                 $qtyBase = $qtyBase * $conv;
             }
-            // Kalau input_uom == base_uom atau kosong → pakai langsung
+            // Kalau input_uom == base_uom, kosong, atau tidak dikenal → pakai langsung tanpa konversi
 
             StockLedger::updateOrCreate(
                 [

@@ -38,19 +38,25 @@ const filteredGrs = computed(() => {
 
 const hasAny = computed(() => filteredGis.value.length > 0 || filteredGrs.value.length > 0)
 
-// ── Navigate by barcode (handles both GI and GR codes) ────────────────────
+// ── Navigate by barcode (GI / GR / Rack code) ─────────────────────────────
 function navigate(barcode) {
-    const gi = (props.gis ?? []).find(g => g.gi_number === barcode)
+    const code = barcode.trim()
+    if (!code) return
+
+    // GI assigned to this operator
+    const gi = (props.gis ?? []).find(g => g.gi_number === code)
     if (gi) {
         router.visit(route('operator.scan-detail', gi.id))
         return
     }
-    const gr = (props.grs ?? []).find(g => g.gr_number === barcode)
+    // GR assigned to this operator
+    const gr = (props.grs ?? []).find(g => g.gr_number === code)
     if (gr) {
         router.visit(route('gr.show', gr.id))
         return
     }
-    alert(`"${barcode}" tidak ditemukan atau tidak di-assign ke Anda`)
+    // Try as rack/location code — navigate directly to rack view
+    router.visit('/rack/' + encodeURIComponent(code))
 }
 
 // ── Text barcode scan (hardware scanner → Enter) ───────────────────────────
@@ -173,7 +179,7 @@ function itemName(variant) {
           @keydown.enter="handleScan"
           type="text"
           class="op-scan-input"
-          placeholder="GI-2025-001..."
+          placeholder="GI-2025-001 / GR-2025-001 / RACK-CODE"
           autocomplete="off"
         />
         <button type="button" class="op-scan-go" @click="handleScan">→</button>
@@ -250,7 +256,7 @@ function itemName(variant) {
     <div v-if="cameraOpen" class="cam-overlay">
       <div class="cam-modal">
         <div class="cam-header">
-          <span class="cam-title">📷 Scan QR Code GI</span>
+          <span class="cam-title">📷 Scan QR Code</span>
           <button type="button" class="cam-close" @click="closeCamera">✕</button>
         </div>
 
@@ -261,7 +267,7 @@ function itemName(variant) {
         </div>
 
         <p v-if="cameraError" class="cam-error">{{ cameraError }}</p>
-        <p v-else class="cam-hint">Arahkan kamera ke QR Code pada barcode GI</p>
+        <p v-else class="cam-hint">Arahkan ke QR Code GI / GR / Rack barcode</p>
       </div>
     </div>
   </Teleport>

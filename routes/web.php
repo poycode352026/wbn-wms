@@ -6,6 +6,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeePortalController;
 use App\Http\Controllers\GoodsIssueController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\GoodsRequestController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\NotificationController;
@@ -115,6 +116,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/goods-issues/{gi}/pickup',           [GoodsIssueController::class, 'pickup']       )->name('gi.pickup');
         Route::delete('/goods-issues/{gi}',                [GoodsIssueController::class, 'destroy']       )->name('gi.destroy');
         Route::delete('/gi-photos/{photo}',                [GoodsIssueController::class, 'deletePhoto']   )->name('gi.photos.destroy');
+    });
+
+    // ── Goods Request ─────────────────────────────────────────────────────────────────
+    Route::middleware('permission:goodsRequest')->group(function () {
+        Route::get('/goods-requests',                [GoodsRequestController::class, 'index'] )->name('grq.index');
+        Route::get('/goods-requests/create',         [GoodsRequestController::class, 'create'])->name('grq.create');
+        Route::post('/goods-requests',               [GoodsRequestController::class, 'store'] )->name('grq.store');
+        Route::get('/goods-requests/{grq}',          [GoodsRequestController::class, 'show']  )->name('grq.show');
+        Route::post('/goods-requests/{grq}/cancel',  [GoodsRequestController::class, 'cancel'])->name('grq.cancel');
     });
 
     // ── LV (Vehicle) Management ───────────────────────────────────────────────────────
