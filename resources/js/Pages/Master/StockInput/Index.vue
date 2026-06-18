@@ -872,14 +872,14 @@ const STAT_COLORS = [
 .si-flash-ok { background:rgba(16,185,129,.12); color:#34d399; border:1px solid rgba(16,185,129,.25) }
 .si-flash-err { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.25) }
 .si-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px }
-.si-modal { background:var(--surface); border:1px solid var(--border-2); border-radius:16px; box-shadow:var(--shadow-lg); width:100%; max-width:680px; max-height:90vh; overflow-y:auto; overflow-x:hidden; color:var(--fg) }
-.si-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 24px 16px; border-bottom:1px solid var(--border) }
+.si-modal { background:var(--surface); border:1px solid var(--border-2); border-radius:16px; box-shadow:var(--shadow-lg); width:100%; max-width:680px; max-height:90vh; display:flex; flex-direction:column; color:var(--fg) }
+.si-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 24px 16px; border-bottom:1px solid var(--border); flex-shrink:0 }
 .si-modal-title { font-size:16px; font-weight:700; color:var(--fg) }
 .si-modal-sub { font-size:12.5px; color:var(--fg-2); margin-top:3px }
 .si-modal-close { appearance:none; border:1px solid var(--border); background:transparent; width:32px; height:32px; border-radius:7px; cursor:pointer; color:var(--fg-2); display:grid; place-items:center; flex-shrink:0; transition:background 180ms,color 180ms }
 .si-modal-close:hover { background:var(--hover); color:var(--fg) }
 .si-modal-close svg { width:15px; height:15px }
-.si-modal-body { padding:20px 24px }
+.si-modal-body { padding:20px 24px; overflow-y:auto; flex:1 }
 .si-variant-strip { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:18px; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
 .si-vs-sku { font-family:monospace; font-weight:700; color:var(--orange-500); font-size:13px }
 .si-vs-name { font-size:13px; font-weight:600; color:var(--fg) }
@@ -904,8 +904,9 @@ const STAT_COLORS = [
 .si-add-form { display:flex; flex-direction:column; gap:12px }
 .si-form-row { display:grid; grid-template-columns:1fr 1fr 110px; gap:12px; align-items:end }
 @media(max-width:600px){ .si-form-row{ grid-template-columns:1fr } }
-.si-fg { display:flex; flex-direction:column; gap:5px }
+.si-fg { display:flex; flex-direction:column; gap:5px; min-width:0 }
 .si-fg-sm { min-width:100px }
+select.si-input { width:100% }
 .si-label { font-size:12px; font-weight:600; color:var(--fg-2) }
 .si-input { padding:9px 12px; font-size:13.5px; background:var(--surface-2); border:1px solid var(--border-2); border-radius:8px; color:var(--fg); outline:none; font-family:inherit; transition:border-color 180ms }
 .si-input:focus { border-color:var(--orange-500) }

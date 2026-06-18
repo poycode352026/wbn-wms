@@ -76,19 +76,9 @@ const STATUS_PILL = {
 function statusPill(status) { return STATUS_PILL[status] ?? 'dr' }
 function statusLabel(tx) {
     if (tx.type === 'GR') return t('gr.status_' + tx.status)
-    // GI statuses map
-    const map = {
-        draft:                'Draft',
-        pending:              'Pending',
-        pending_manager_dept: 'Pending Mgr',
-        pending_manager_wh:   'Pending WH',
-        pending_supervisor:   'Pending Sup.',
-        approved:             'Approved',
-        rejected:             'Rejected',
-        cancelled:            'Cancelled',
-        completed:            'Completed',
-    }
-    return map[tx.status] ?? tx.status
+    const key = 'gi.status_' + tx.status
+    const translated = t(key)
+    return translated !== key ? translated : tx.status
 }
 
 function itemName(item) {

@@ -47,9 +47,9 @@ class GoodsIssueController extends Controller
             $query->where('department_id', $user->department_id)
                   ->whereIn('status', ['pending_manager_dept', 'pending_supervisor', 'pending_manager_wh', 'approved', 'assigned', 'in_picking', 'ready_to_pickup', 'completed', 'rejected']);
         } elseif ($role === 'wh_supervisor') {
-            $query->whereIn('status', ['pending_supervisor', 'pending_manager_wh', 'approved', 'assigned', 'in_picking', 'ready_to_pickup', 'completed', 'rejected']);
+            $query->whereIn('status', ['pending_supervisor', 'approved', 'assigned', 'in_picking', 'ready_to_pickup', 'completed', 'rejected']);
         } elseif ($role === 'wh_manager') {
-            $query->whereIn('status', ['pending_manager_wh', 'approved', 'assigned', 'in_picking', 'ready_to_pickup', 'completed', 'rejected']);
+            $query->whereIn('status', ['pending_manager_wh', 'pending_supervisor', 'approved', 'assigned', 'in_picking', 'ready_to_pickup', 'completed', 'rejected']);
         } elseif ($role === 'wh_admin') {
             $query->whereIn('status', ['approved', 'assigned', 'in_picking', 'ready_to_pickup', 'completed']);
         } elseif ($role === 'operator') {
@@ -465,7 +465,7 @@ class GoodsIssueController extends Controller
     }
 
     // ── Approve ────────────────────────────────────────────────────────────────
-    // Flow: pending_manager_dept → pending_supervisor → pending_manager_wh → approved
+    // Flow: pending_manager_dept → pending_manager_wh → pending_supervisor → approved
 
     public function approve(Request $request, GoodsIssue $gi): RedirectResponse
     {
@@ -474,26 +474,26 @@ class GoodsIssueController extends Controller
         $transitions = [
             'pending_manager_dept' => [
                 'roles'       => ['manager_dept', 'super_admin'],
-                'next'        => 'pending_supervisor',
+                'next'        => 'pending_manager_wh',
                 'step'        => 'manager_dept',
-                'notifyRole'  => 'wh_supervisor',
+                'notifyRole'  => 'wh_manager',
                 'notifyType'  => 'GI_APPROVED_MGR',
                 'notifyTitle' => "GI Awaiting Review: {$gi->gi_number}",
                 'notifyMsg'   => "GI {$gi->gi_number} from {$gi->department?->name} has been approved by Dept Manager. Your review is required.",
             ],
-            'pending_supervisor' => [
-                'roles'       => ['wh_supervisor', 'super_admin'],
-                'next'        => 'pending_manager_wh',
-                'step'        => 'wh_supervisor',
-                'notifyRole'  => 'wh_manager',
-                'notifyType'  => 'GI_APPROVED_SPV',
-                'notifyTitle' => "GI Awaiting Final Approval: {$gi->gi_number}",
-                'notifyMsg'   => "GI {$gi->gi_number} has been approved by WH Supervisor. Your final approval is required.",
-            ],
             'pending_manager_wh' => [
                 'roles'       => ['wh_manager', 'super_admin'],
-                'next'        => 'approved',
+                'next'        => 'pending_supervisor',
                 'step'        => 'wh_manager',
+                'notifyRole'  => 'wh_supervisor',
+                'notifyType'  => 'GI_APPROVED_WH_MGR',
+                'notifyTitle' => "GI Awaiting Supervisor Review: {$gi->gi_number}",
+                'notifyMsg'   => "GI {$gi->gi_number} has been approved by WH Manager. Your review is required.",
+            ],
+            'pending_supervisor' => [
+                'roles'       => ['wh_supervisor', 'super_admin'],
+                'next'        => 'approved',
+                'step'        => 'wh_supervisor',
                 'notifyRole'  => 'wh_admin',
                 'notifyType'  => 'GI_APPROVED_ALL',
                 'notifyTitle' => "GI Approved: {$gi->gi_number}",
@@ -549,16 +549,16 @@ class GoodsIssueController extends Controller
     {
         $user = $request->user();
 
-        $allowedStatuses = ['pending_manager_dept', 'pending_supervisor', 'pending_manager_wh'];
+        $allowedStatuses = ['pending_manager_dept', 'pending_manager_wh', 'pending_supervisor'];
         $allowedRoles    = [
             'pending_manager_dept' => ['manager_dept', 'super_admin'],
-            'pending_supervisor'   => ['wh_supervisor', 'super_admin'],
             'pending_manager_wh'   => ['wh_manager', 'super_admin'],
+            'pending_supervisor'   => ['wh_supervisor', 'super_admin'],
         ];
         $stepMap = [
             'pending_manager_dept' => 'manager_dept',
-            'pending_supervisor'   => 'wh_supervisor',
             'pending_manager_wh'   => 'wh_manager',
+            'pending_supervisor'   => 'wh_supervisor',
         ];
 
         if (!in_array($gi->status, $allowedStatuses)) {

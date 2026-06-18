@@ -23,8 +23,8 @@ class WarehouseAndCategorySeeder extends Seeder
 
         // 2. IT Warehouse (priority 2)
         $itWarehouse = Warehouse::create([
-            'code'       => 'IT',
-            'name'       => 'Warehouse IT',
+            'code'       => 'CTR',
+            'name'       => 'Warehouse Counter Room',
             'location'   => 'WBN Office Gedung Putih Lantai 1 - Counter Room',
             'is_active'  => true,
             'sort_order' => 2,
@@ -75,8 +75,8 @@ class WarehouseAndCategorySeeder extends Seeder
 
         Location::create([
             'warehouse_id' => $itWarehouse->id,
-            'code'         => 'IT-HA',
-            'name'         => 'IT Warehouse . Holding Area',
+            'code'         => 'CTR-HA',
+            'name'         => 'Counter Room Warehouse . Holding Area',
             'description'  => $holdingAreaDescription,
             'is_active'    => true,
         ]);
@@ -84,10 +84,10 @@ class WarehouseAndCategorySeeder extends Seeder
         Location::create([
             'warehouse_id' => $km17->id,
             'code'         => 'KM17-HA',
-    'name'         => 'KM17 Warehouse . Holding Area',
-    'description'  => $holdingAreaDescription,
-    'is_active'    => true,
-]);
+            'name'         => 'KM17 Warehouse . Holding Area',
+            'description'  => $holdingAreaDescription,
+            'is_active'    => true,
+        ]);
 
         // Rack Numbers
         $generalRacks = [15, 8, 19, 13, 14,18];

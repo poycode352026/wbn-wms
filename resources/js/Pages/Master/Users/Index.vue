@@ -58,9 +58,20 @@ function openMenu(event, user) {
     event.stopPropagation()
     if (activeMenu.value === user.id) { closeMenu(); return }
     const rect = event.currentTarget.getBoundingClientRect()
-    dropdownStyle.value = {
-        top:   (rect.bottom + 6) + 'px',
-        right: (window.innerWidth - rect.right) + 'px',
+    const dropdownH  = 180
+    const spaceBelow = window.innerHeight - rect.bottom
+    if (spaceBelow < dropdownH + 12) {
+        dropdownStyle.value = {
+            bottom: (window.innerHeight - rect.top + 6) + 'px',
+            right:  (window.innerWidth - rect.right) + 'px',
+            top:    'auto',
+        }
+    } else {
+        dropdownStyle.value = {
+            top:    (rect.bottom + 6) + 'px',
+            right:  (window.innerWidth - rect.right) + 'px',
+            bottom: 'auto',
+        }
     }
     activeMenu.value = user.id
     menuUser.value   = user

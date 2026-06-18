@@ -41,7 +41,7 @@ function fmtDate(iso) {
 }
 
 function goDetail(gi) {
-    if (['assigned','in_picking','ready_to_pickup'].includes(gi.status)) {
+    if (['assigned','in_picking','ready_to_pickup','completed'].includes(gi.status)) {
         router.visit(route('operator.scan-detail', gi.id))
     }
 }
@@ -74,7 +74,7 @@ function goDetail(gi) {
         v-for="gi in filtered"
         :key="gi.id"
         class="hist-card"
-        :class="{ clickable: ['assigned','in_picking','ready_to_pickup'].includes(gi.status) }"
+        :class="{ clickable: ['assigned','in_picking','ready_to_pickup','completed'].includes(gi.status) }"
         @click="goDetail(gi)"
       >
         <div class="hist-card-top">

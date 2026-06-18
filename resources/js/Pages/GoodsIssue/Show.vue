@@ -51,8 +51,8 @@ function fmtQty(v) {
 
 // ── Progress stepper (mirrors GR style) ───────────────────────────────────────
 const STATUS_TO_IDX = {
-    draft: 0, pending_manager_dept: 1, pending_supervisor: 2,
-    pending_manager_wh: 3, approved: 4, assigned: 5, in_picking: 5,
+    draft: 0, pending_manager_dept: 1, pending_manager_wh: 2,
+    pending_supervisor: 3, approved: 4, assigned: 5, in_picking: 5,
     ready_to_pickup: 6, completed: 7,
 }
 
@@ -66,7 +66,7 @@ const giSteps = computed(() => {
     const findAppr = (step, action) => apprls.find(a => a.step === step && a.action === action)
 
     // which approval step index was rejected at?
-    const rejStepMap = { manager_dept: 1, wh_supervisor: 2, wh_manager: 3 }
+    const rejStepMap = { manager_dept: 1, wh_manager: 2, wh_supervisor: 3 }
     const lastRej = [...apprls].reverse().find(a => a.action === 'rejected')
     const rejIdx  = isRej ? (rejStepMap[lastRej?.step] ?? 1) : -1
 
@@ -80,14 +80,14 @@ const giSteps = computed(() => {
     }
 
     const mgr = findAppr('manager_dept', 'approved') ?? findAppr('manager_dept', 'rejected')
-    const spv = findAppr('wh_supervisor', 'approved') ?? findAppr('wh_supervisor', 'rejected')
     const whm = findAppr('wh_manager',   'approved') ?? findAppr('wh_manager',   'rejected')
+    const spv = findAppr('wh_supervisor', 'approved') ?? findAppr('wh_supervisor', 'rejected')
 
     return [
         mkStep(0, 'draft',                'Draft',        gi.requested_by?.name ?? '—',       gi.created_at),
         mkStep(1, 'pending_manager_dept', 'Dept Manager', mgr?.acted_by?.name ?? 'Pending',   mgr?.acted_at),
-        mkStep(2, 'pending_supervisor',   'WH Supervisor',spv?.acted_by?.name ?? 'Pending',   spv?.acted_at),
-        mkStep(3, 'pending_manager_wh',   'WH Manager',   whm?.acted_by?.name ?? 'Pending',   whm?.acted_at),
+        mkStep(2, 'pending_manager_wh',   'WH Manager',   whm?.acted_by?.name ?? 'Pending',   whm?.acted_at),
+        mkStep(3, 'pending_supervisor',   'WH Supervisor',spv?.acted_by?.name ?? 'Pending',   spv?.acted_at),
         mkStep(4, 'approved',    'Assign Operator', gi.assigned_to?.name ?? 'Pending', null),
         mkStep(5, 'in_progress', 'Picking',         gi.picked_by?.name ?? gi.assigned_to?.name ?? 'Pending', gi.picked_at),
         mkStep(6, 'ready_to_pickup',      'Ready',        'Staging area',                     null),
