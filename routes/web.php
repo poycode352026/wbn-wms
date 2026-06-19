@@ -120,11 +120,12 @@ Route::middleware('auth')->group(function () {
 
     // ── Goods Request ─────────────────────────────────────────────────────────────────
     Route::middleware('permission:goodsRequest')->group(function () {
-        Route::get('/goods-requests',                [GoodsRequestController::class, 'index'] )->name('grq.index');
-        Route::get('/goods-requests/create',         [GoodsRequestController::class, 'create'])->name('grq.create');
-        Route::post('/goods-requests',               [GoodsRequestController::class, 'store'] )->name('grq.store');
-        Route::get('/goods-requests/{grq}',          [GoodsRequestController::class, 'show']  )->name('grq.show');
-        Route::post('/goods-requests/{grq}/cancel',  [GoodsRequestController::class, 'cancel'])->name('grq.cancel');
+        Route::get('/goods-requests',                 [GoodsRequestController::class, 'index'] )->name('grq.index');
+        Route::get('/goods-requests/create',          [GoodsRequestController::class, 'create'])->name('grq.create');
+        Route::post('/goods-requests',                [GoodsRequestController::class, 'store'] )->name('grq.store');
+        Route::get('/goods-requests/{grq}',           [GoodsRequestController::class, 'show']  )->name('grq.show');
+        Route::post('/goods-requests/{grq}/assign',   [GoodsRequestController::class, 'assign'])->name('grq.assign');
+        Route::post('/goods-requests/{grq}/cancel',   [GoodsRequestController::class, 'cancel'])->name('grq.cancel');
     });
 
     // ── LV (Vehicle) Management ───────────────────────────────────────────────────────
@@ -146,13 +147,18 @@ Route::middleware('auth')->group(function () {
 
     // ── Operator Scan ─────────────────────────────────────────────────────────────────
     Route::middleware('role:operator,wh_admin')->prefix('operator')->name('operator.')->group(function () {
-        Route::get('/scan',                        [OperatorController::class, 'scanList']    )->name('scan-list');
-        Route::get('/scan/resolve',                [OperatorController::class, 'resolveBarcode'])->name('scan-resolve');
-        Route::get('/scan/{goodsIssue}',           [OperatorController::class, 'scanDetail']  )->name('scan-detail');
-        Route::post('/scan/{goodsIssue}/start',    [OperatorController::class, 'startPicking'])->name('start-picking');
-        Route::post('/scan/{goodsIssue}/submit',   [OperatorController::class, 'submitPickup'])->name('submit-pickup');
-        Route::post('/scan/{goodsIssue}/confirm',  [OperatorController::class, 'confirmPickup'])->name('confirm-pickup');
-        Route::get('/history',                     [OperatorController::class, 'history']     )->name('history');
+        Route::get('/scan',                          [OperatorController::class, 'scanList']       )->name('scan-list');
+        Route::get('/scan/resolve',                  [OperatorController::class, 'resolveBarcode'] )->name('scan-resolve');
+        Route::get('/scan/{goodsIssue}',             [OperatorController::class, 'scanDetail']     )->name('scan-detail');
+        Route::post('/scan/{goodsIssue}/start',      [OperatorController::class, 'startPicking']   )->name('start-picking');
+        Route::post('/scan/{goodsIssue}/submit',     [OperatorController::class, 'submitPickup']   )->name('submit-pickup');
+        Route::post('/scan/{goodsIssue}/confirm',    [OperatorController::class, 'confirmPickup']  )->name('confirm-pickup');
+        // GRQ operator flow
+        Route::get('/scan-grq/{grq}',                [OperatorController::class, 'scanDetailGrq']  )->name('scan-grq-detail');
+        Route::post('/scan-grq/{grq}/start',         [OperatorController::class, 'startPickingGrq'])->name('start-picking-grq');
+        Route::post('/scan-grq/{grq}/submit',        [OperatorController::class, 'submitPickupGrq'])->name('submit-pickup-grq');
+        Route::post('/scan-grq/{grq}/confirm',       [OperatorController::class, 'confirmPickupGrq'])->name('confirm-pickup-grq');
+        Route::get('/history',                       [OperatorController::class, 'history']        )->name('history');
     });
 
     // ── Employee Portal ────────────────────────────────────────────────────────────────

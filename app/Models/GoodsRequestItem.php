@@ -15,11 +15,15 @@ class GoodsRequestItem extends Model
         'requested_qty',
         'uom_used',
         'qty_in_base_uom',
+        'actual_qty',
+        'item_status',
+        'notes',
     ];
 
     protected $casts = [
         'requested_qty'   => 'float',
         'qty_in_base_uom' => 'float',
+        'actual_qty'      => 'float',
     ];
 
     public function goodsRequest(): BelongsTo

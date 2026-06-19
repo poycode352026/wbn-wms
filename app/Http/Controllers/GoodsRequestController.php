@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\GoodsRequest;
 use App\Models\GoodsRequestItem;
+use App\Models\GoodsRequestPhoto;
 use App\Models\ItemVariant;
 use App\Models\StockLedger;
+use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,8 +65,17 @@ class GoodsRequestController extends Controller
         $departments = Department::where('is_active', true)->orderBy('name')
             ->get(['id', 'name', 'code']);
 
+        $operators = User::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('role', 'operator')
+                  ->orWhere('role', 'wh_admin');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'role']);
+
         return Inertia::render('GoodsRequest/Create', [
             'departments' => $departments,
+            'operators'   => $operators,
             'allVariants' => $this->getAllVariants(),
             'stockMap'    => $this->getStockMap(),
         ]);
@@ -88,7 +100,6 @@ class GoodsRequestController extends Controller
         ]);
 
         DB::transaction(function () use ($data, $request) {
-            // Use first item's warehouse as the GRQ's primary warehouse
             $primaryWarehouseId = $data['items'][0]['warehouse_id'];
 
             $grq = GoodsRequest::create([
@@ -99,7 +110,7 @@ class GoodsRequestController extends Controller
                 'department_id'    => $data['department_id'] ?? null,
                 'remark'           => $data['remark'] ?? null,
                 'recorded_by'      => $request->user()->id,
-                'status'           => 'completed',
+                'status'           => 'pending',
             ]);
 
             foreach ($data['items'] as $row) {
@@ -112,27 +123,12 @@ class GoodsRequestController extends Controller
                     'uom_used'         => $row['uom'],
                     'qty_in_base_uom'  => $row['base_qty'],
                 ]);
-
-                // Deduct from specific warehouse + location ledger row
-                $remaining = (float) $row['base_qty'];
-                StockLedger::where('item_variant_id', $row['variant_id'])
-                    ->where('warehouse_id', $row['warehouse_id'])
-                    ->when($row['location_id'] ?? null, fn ($q) => $q->where('location_id', $row['location_id']))
-                    ->orderByDesc('qty_on_hand')
-                    ->each(function ($ledger) use (&$remaining) {
-                        if ($remaining <= 0) return false;
-                        $deduct = min($remaining, (float) $ledger->qty_on_hand);
-                        if ($deduct > 0) {
-                            $ledger->decrement('qty_on_hand', $deduct);
-                            $remaining -= $deduct;
-                        }
-                    });
             }
 
             session()->flash('grq_id', $grq->id);
         });
 
-        return redirect()->route('grq.index')->with('success', 'Goods Request recorded successfully.');
+        return redirect()->route('grq.index')->with('success', 'Goods Request created. Please assign an operator.');
     }
 
     // ── Show ───────────────────────────────────────────────────────────────────
@@ -143,23 +139,75 @@ class GoodsRequestController extends Controller
             'warehouse:id,code,name',
             'department:id,name,code',
             'recordedBy:id,name',
+            'assignedTo:id,name',
+            'pickedBy:id,name',
             'cancelledBy:id,name',
             'items.variant.item:id,name_en,name_id,name_zh,base_uom',
             'items.warehouse:id,code',
             'items.location:id,code',
+            'photos',
         ]);
 
+        $operators = User::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('role', 'operator')
+                  ->orWhere('role', 'wh_admin');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'role']);
+
         return Inertia::render('GoodsRequest/Show', [
-            'grq' => $grq,
+            'grq'       => $grq,
+            'operators' => $operators,
         ]);
+    }
+
+    // ── Assign Operator ────────────────────────────────────────────────────────
+
+    public function assign(Request $request, GoodsRequest $grq): RedirectResponse
+    {
+        $allowedRoles = ['super_admin', 'wh_admin', 'wh_supervisor'];
+        if (!in_array($request->user()->role, $allowedRoles)) {
+            abort(403);
+        }
+
+        if ($grq->status !== 'pending') {
+            return back()->with('error', 'GRQ can only be assigned when status is pending.');
+        }
+
+        $request->validate([
+            'operator_id' => ['required', 'exists:users,id'],
+        ]);
+
+        $grq->update([
+            'assigned_to' => $request->operator_id,
+            'assigned_at' => now(),
+            'status'      => 'assigned',
+        ]);
+
+        $operator = User::find($request->operator_id);
+
+        NotificationService::send(
+            $request->operator_id,
+            'GRQ_ASSIGNED',
+            "GRQ Assigned: {$grq->grq_number}",
+            "You have been assigned to prepare items for GRQ {$grq->grq_number}. Requester: {$grq->requester_name}.",
+            [
+                'grq_id'     => $grq->id,
+                'grq_number' => $grq->grq_number,
+                'route'      => '/operator/scan-grq/' . $grq->id,
+            ]
+        );
+
+        return back()->with('success', "GRQ assigned to {$operator?->name}.");
     }
 
     // ── Cancel ─────────────────────────────────────────────────────────────────
 
     public function cancel(Request $request, GoodsRequest $grq): RedirectResponse
     {
-        if ($grq->status !== 'completed') {
-            return back()->with('error', 'Only completed requests can be cancelled.');
+        if (!in_array($grq->status, ['pending', 'assigned'])) {
+            return back()->with('error', 'GRQ can only be cancelled when status is pending or assigned.');
         }
 
         $allowedRoles = ['super_admin', 'wh_admin', 'wh_supervisor'];
@@ -167,25 +215,14 @@ class GoodsRequestController extends Controller
             abort(403);
         }
 
-        DB::transaction(function () use ($grq, $request) {
-            // Restore stock to the exact warehouse + location it was deducted from
-            foreach ($grq->items as $item) {
-                StockLedger::where('item_variant_id', $item->item_variant_id)
-                    ->where('warehouse_id', $item->warehouse_id ?? $grq->warehouse_id)
-                    ->when($item->location_id, fn ($q) => $q->where('location_id', $item->location_id))
-                    ->orderByDesc('qty_on_hand')
-                    ->first()
-                    ?->increment('qty_on_hand', (float) $item->qty_in_base_uom);
-            }
+        // Stock has not been deducted yet — no restoration needed
+        $grq->update([
+            'status'       => 'cancelled',
+            'cancelled_by' => $request->user()->id,
+            'cancelled_at' => now(),
+        ]);
 
-            $grq->update([
-                'status'       => 'cancelled',
-                'cancelled_by' => $request->user()->id,
-                'cancelled_at' => now(),
-            ]);
-        });
-
-        return back()->with('success', 'Request cancelled and stock restored.');
+        return back()->with('success', 'Request cancelled.');
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

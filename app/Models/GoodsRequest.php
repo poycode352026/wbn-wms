@@ -17,11 +17,19 @@ class GoodsRequest extends Model
         'remark',
         'recorded_by',
         'status',
+        'assigned_to',
+        'assigned_at',
+        'picked_by',
+        'picked_at',
+        'completed_at',
         'cancelled_by',
         'cancelled_at',
     ];
 
     protected $casts = [
+        'assigned_at'  => 'datetime',
+        'picked_at'    => 'datetime',
+        'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
     ];
 
@@ -47,6 +55,16 @@ class GoodsRequest extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function pickedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'picked_by');
+    }
+
     public function cancelledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cancelled_by');
@@ -55,5 +73,10 @@ class GoodsRequest extends Model
     public function items(): HasMany
     {
         return $this->hasMany(GoodsRequestItem::class);
+    }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(GoodsRequestPhoto::class);
     }
 }

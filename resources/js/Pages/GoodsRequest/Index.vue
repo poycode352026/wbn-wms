@@ -29,8 +29,12 @@ watch([search, statusF, warehouseF], () => {
 })
 
 const STATUS_MAP = {
-    completed: { lbl: 'Completed', bg:'rgba(16,185,129,.15)',  col:'#34d399' },
-    cancelled: { lbl: 'Cancelled', bg:'rgba(239,68,68,.15)',   col:'#f87171' },
+    pending:         { lbl: 'Pending',         bg:'rgba(156,163,175,.15)', col:'#9ca3af' },
+    assigned:        { lbl: 'Assigned',        bg:'rgba(59,130,246,.15)',  col:'#3b82f6' },
+    in_picking:      { lbl: 'In Picking',      bg:'rgba(249,115,22,.15)',  col:'#f97316' },
+    ready_to_pickup: { lbl: 'Ready to Pickup', bg:'rgba(234,179,8,.15)',   col:'#eab308' },
+    completed:       { lbl: 'Completed',       bg:'rgba(16,185,129,.15)',  col:'#34d399' },
+    cancelled:       { lbl: 'Cancelled',       bg:'rgba(239,68,68,.15)',   col:'#f87171' },
 }
 function statusStyle(s) { const m = STATUS_MAP[s]??{}; return { background:m.bg, color:m.col } }
 function statusLabel(s) { return STATUS_MAP[s]?.lbl ?? s }

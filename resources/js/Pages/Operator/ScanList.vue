@@ -7,8 +7,9 @@ import OperatorLayout from '@/Layouts/OperatorLayout.vue'
 const { t, locale } = useI18n()
 
 const props = defineProps({
-    gis: Array,
-    grs: { type: Array, default: () => [] },
+    gis:  Array,
+    grs:  { type: Array, default: () => [] },
+    grqs: { type: Array, default: () => [] },
 })
 
 const searchQuery  = ref('')
@@ -38,7 +39,20 @@ const filteredGrs = computed(() => {
     )
 })
 
-const hasAny = computed(() => filteredGis.value.length > 0 || filteredGrs.value.length > 0)
+// ── Filter GRQ by search ───────────────────────────────────────────────────
+const filteredGrqs = computed(() => {
+    if (!searchQuery.value.trim()) return props.grqs ?? []
+    const q = searchQuery.value.toLowerCase()
+    return (props.grqs ?? []).filter(grq =>
+        grq.grq_number.toLowerCase().includes(q) ||
+        grq.requester_name?.toLowerCase().includes(q) ||
+        grq.department?.name?.toLowerCase().includes(q)
+    )
+})
+
+const hasAny = computed(() =>
+    filteredGis.value.length > 0 || filteredGrs.value.length > 0 || filteredGrqs.value.length > 0
+)
 
 // ── Navigate by barcode (GI / GR / Rack / Warehouse code) ─────────────────
 async function navigate(barcode) {
@@ -242,6 +256,30 @@ function itemName(variant) {
             </div>
             <div class="op-item-footer">
               <span class="op-status-badge op-status-gr-assigned">📥 GR · Menunggu Inspeksi</span>
+            </div>
+          </Link>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Goods Request List ────────────────────────────────────────────────── -->
+    <div v-if="filteredGrqs.length">
+      <div class="op-section-hdr">📋 Goods Request</div>
+      <div class="op-list">
+        <div v-for="grq in filteredGrqs" :key="'grq-'+grq.id" class="op-list-item op-list-item-grq">
+          <Link :href="route('operator.scan-grq-detail', grq.id)" class="op-item-link">
+            <div class="op-item-header">
+              <span class="op-gi-number">{{ grq.grq_number }}</span>
+              <span class="op-item-count">{{ grq.items_count }} {{ $t('operator.items') }}</span>
+            </div>
+            <div class="op-item-details">
+              <span class="op-dept">{{ grq.requester_name }}</span>
+              <span class="op-purpose">{{ grq.department?.name ?? '—' }}</span>
+            </div>
+            <div class="op-item-footer">
+              <span class="op-status-badge" :class="`op-status-${grq.status}`">
+                📋 GRQ · {{ { assigned: 'Assigned', in_picking: 'In Picking', ready_to_pickup: 'Ready' }[grq.status] ?? grq.status }}
+              </span>
             </div>
           </Link>
         </div>
@@ -522,6 +560,11 @@ function itemName(variant) {
 .op-list-item-gr:hover {
   border-color: #3b82f6;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+.op-list-item-grq { border-color: rgba(234,179,8,.3); }
+.op-list-item-grq:hover {
+  border-color: #eab308;
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.15);
 }
 
 .op-item-footer { display: flex; align-items: center; gap: 6px; }

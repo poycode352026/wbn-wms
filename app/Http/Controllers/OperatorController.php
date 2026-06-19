@@ -8,6 +8,9 @@ use App\Models\GoodsIssue;
 use App\Models\GoodsIssueItem;
 use App\Models\GoodsIssuePhoto;
 use App\Models\GoodsReceipt;
+use App\Models\GoodsRequest;
+use App\Models\GoodsRequestItem;
+use App\Models\GoodsRequestPhoto;
 use App\Models\Location;
 use App\Models\StockLedger;
 use App\Models\Warehouse;
@@ -53,9 +56,19 @@ class OperatorController extends Controller
             ->latest()
             ->get();
 
+        // GRQs assigned to this operator
+        $grqs = GoodsRequest::query()
+            ->with(['department:id,name,code'])
+            ->withCount('items')
+            ->where('assigned_to', $user->id)
+            ->whereIn('status', ['assigned', 'in_picking', 'ready_to_pickup'])
+            ->latest()
+            ->get();
+
         return Inertia::render('Operator/ScanList', [
-            'gis' => $gis->values(),
-            'grs' => $grs->values(),
+            'gis'  => $gis->values(),
+            'grs'  => $grs->values(),
+            'grqs' => $grqs->values(),
         ]);
     }
 
@@ -350,6 +363,18 @@ class OperatorController extends Controller
             ]);
         }
 
+        // GRQ assigned to this operator
+        $grq = GoodsRequest::where('grq_number', $code)
+            ->where('assigned_to', $user->id)
+            ->whereIn('status', ['assigned', 'in_picking', 'ready_to_pickup'])
+            ->first();
+        if ($grq) {
+            return response()->json([
+                'type' => 'grq',
+                'url'  => route('operator.scan-grq-detail', $grq->id),
+            ]);
+        }
+
         // Location / rack code
         $location = Location::where('code', $code)->where('is_active', true)->first();
         if ($location) {
@@ -369,6 +394,189 @@ class OperatorController extends Controller
         }
 
         return response()->json(['type' => 'not_found']);
+    }
+
+    // ── GRQ Detail: show GRQ picking page for operator ────────────────────────
+
+    public function scanDetailGrq(Request $request, GoodsRequest $grq): Response
+    {
+        $this->authorizeOp($request);
+        $user = $request->user();
+
+        if ($grq->assigned_to !== $user->id) abort(403);
+
+        $grq->load([
+            'department:id,name,code',
+            'items.variant:id,sku,item_id',
+            'items.variant.item:id,name_en,name_id,name_zh,base_uom',
+            'items.warehouse:id,code,name',
+            'items.location:id,code,name',
+            'photos',
+        ]);
+
+        // Build location map — show operator WHERE to get each item
+        $locationMap = [];
+        foreach ($grq->items as $gItem) {
+            $whId = $gItem->warehouse_id;
+            $vid  = $gItem->item_variant_id;
+
+            $ledgers = StockLedger::where('item_variant_id', $vid)
+                ->where('warehouse_id', $whId)
+                ->where('qty_on_hand', '>', 0)
+                ->with('location:id,code,name')
+                ->orderByDesc('qty_on_hand')
+                ->get(['item_variant_id', 'location_id', 'qty_on_hand', 'qty_reserved']);
+
+            if (!isset($locationMap[$vid])) $locationMap[$vid] = [];
+            foreach ($ledgers as $ledger) {
+                $locationMap[$vid][] = [
+                    'warehouse_id'   => $whId,
+                    'warehouse_code' => $gItem->warehouse?->code ?? '—',
+                    'warehouse_name' => $gItem->warehouse?->name ?? '—',
+                    'location_code'  => $ledger->location?->code,
+                    'location_name'  => $ledger->location?->name,
+                    'qty_on_hand'    => (float) $ledger->qty_on_hand,
+                    'qty_reserved'   => (float) $ledger->qty_reserved,
+                    'available'      => max(0, (float) $ledger->qty_on_hand - (float) $ledger->qty_reserved),
+                ];
+            }
+        }
+
+        return Inertia::render('Operator/ScanDetailGrq', [
+            'grq'         => $grq,
+            'locationMap' => $locationMap,
+        ]);
+    }
+
+    // ── GRQ Start Picking: assigned → in_picking ──────────────────────────────
+
+    public function startPickingGrq(Request $request, GoodsRequest $grq): RedirectResponse
+    {
+        $this->authorizeOp($request);
+        $user = $request->user();
+
+        if ($grq->assigned_to !== $user->id) abort(403);
+
+        if ($grq->status !== 'assigned') {
+            return back()->with('error', 'GRQ tidak dalam status assigned.');
+        }
+
+        $grq->update([
+            'status'    => 'in_picking',
+            'picked_by' => $user->id,
+            'picked_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('operator.scan-grq-detail', $grq->id)
+            ->with('success', 'Picking dimulai! Siapkan semua barang.');
+    }
+
+    // ── GRQ Submit Pickup: in_picking + actual qty → ready_to_pickup ──────────
+
+    public function submitPickupGrq(Request $request, GoodsRequest $grq): RedirectResponse
+    {
+        $this->authorizeOp($request);
+        $user = $request->user();
+
+        if ($grq->assigned_to !== $user->id && $grq->picked_by !== $user->id) abort(403);
+
+        if ($grq->status !== 'in_picking') {
+            return back()->with('error', 'GRQ tidak dalam status in_picking.');
+        }
+
+        $request->validate([
+            'items'              => ['required', 'array', 'min:1'],
+            'items.*.id'         => ['required', 'exists:goods_request_items,id'],
+            'items.*.actual_qty' => ['required', 'numeric', 'min:0'],
+            'items.*.status'     => ['nullable', 'in:ready,rejected'],
+            'items.*.notes'      => ['nullable', 'string', 'max:500'],
+        ]);
+
+        foreach ($request->input('items', []) as $itemData) {
+            if (($itemData['status'] ?? 'ready') === 'rejected' && empty(trim($itemData['notes'] ?? ''))) {
+                return back()->with('error', 'Alasan penolakan wajib diisi untuk setiap item yang ditolak.');
+            }
+        }
+
+        DB::transaction(function () use ($request, $grq) {
+            foreach ($request->input('items') as $itemData) {
+                $status = $itemData['status'] ?? ($itemData['actual_qty'] > 0 ? 'ready' : 'rejected');
+                GoodsRequestItem::where('id', $itemData['id'])
+                    ->where('goods_request_id', $grq->id)
+                    ->update([
+                        'actual_qty'  => $itemData['actual_qty'],
+                        'item_status' => $status,
+                        'notes'       => $itemData['notes'] ?? null,
+                    ]);
+            }
+            $grq->update(['status' => 'ready_to_pickup']);
+        });
+
+        return redirect()
+            ->route('operator.scan-grq-detail', $grq->id)
+            ->with('success', 'Picking selesai! Siap untuk konfirmasi pengambilan.');
+    }
+
+    // ── GRQ Confirm Pickup: ready_to_pickup + photos → completed ─────────────
+
+    public function confirmPickupGrq(Request $request, GoodsRequest $grq): RedirectResponse
+    {
+        $this->authorizeOp($request);
+        $user = $request->user();
+
+        if ($grq->assigned_to !== $user->id && $grq->picked_by !== $user->id) abort(403);
+
+        if ($grq->status !== 'ready_to_pickup') {
+            return back()->with('error', 'GRQ belum dalam status ready_to_pickup.');
+        }
+
+        $request->validate([
+            'photos'   => ['required', 'array', 'min:1'],
+            'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp,heic,heif', 'max:8192'],
+        ]);
+
+        $grq->load(['items']);
+
+        DB::transaction(function () use ($request, $grq, $user) {
+            // Upload evidence photos
+            foreach ($request->file('photos') as $file) {
+                $path = $file->store('grq-photos', 'public');
+                GoodsRequestPhoto::create([
+                    'goods_request_id' => $grq->id,
+                    'path'             => $path,
+                    'original_name'    => $file->getClientOriginalName(),
+                    'stage'            => 'pickup',
+                    'uploaded_by'      => $user->id,
+                ]);
+            }
+
+            // Deduct stock for ready items only
+            foreach ($grq->items()->where('item_status', 'ready')->get() as $item) {
+                $qty = (float) ($item->actual_qty ?? $item->qty_in_base_uom);
+                if ($qty <= 0) continue;
+
+                StockLedger::where('item_variant_id', $item->item_variant_id)
+                    ->where('warehouse_id', $item->warehouse_id)
+                    ->when($item->location_id, fn ($q) => $q->where('location_id', $item->location_id))
+                    ->orderByDesc('qty_on_hand')
+                    ->each(function ($ledger) use (&$qty) {
+                        if ($qty <= 0) return false;
+                        $deduct = min($qty, (float) $ledger->qty_on_hand);
+                        if ($deduct > 0) $ledger->decrement('qty_on_hand', $deduct);
+                        $qty -= $deduct;
+                    });
+            }
+
+            $grq->update([
+                'status'       => 'completed',
+                'completed_at' => now(),
+            ]);
+        });
+
+        return redirect()
+            ->route('operator.scan-list')
+            ->with('success', "GRQ {$grq->grq_number} selesai — barang sudah diserahkan!");
     }
 
     // ── History: completed/rejected GIs handled by this operator ──────────────
