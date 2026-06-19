@@ -47,9 +47,23 @@ function openDropdown(idx, event) {
         zIndex:   9999,
     }
     activeDropIdx.value = idx
+    // Clear query so user gets fresh search results (not filtered by previous selection name)
+    const row = rows.value[idx]
+    if (row.variantId) row.query = ''
 }
 function closeDropdown() {
-    setTimeout(() => { activeDropIdx.value = -1 }, 160)
+    const idx = activeDropIdx.value
+    setTimeout(() => {
+        // Restore display name if user closed dropdown without picking a new variant
+        if (idx >= 0) {
+            const row = rows.value[idx]
+            if (row.variantId && !row.query.trim()) {
+                const v = variantOf(row)
+                row.query = v ? (itemName(v) || v.sku) : ''
+            }
+        }
+        activeDropIdx.value = -1
+    }, 160)
 }
 
 // ── variant helpers ────────────────────────────────────────────────────────

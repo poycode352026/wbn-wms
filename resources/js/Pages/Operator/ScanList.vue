@@ -11,8 +11,10 @@ const props = defineProps({
     grs: { type: Array, default: () => [] },
 })
 
-const searchQuery = ref('')
-const scanInput   = ref('')
+const searchQuery  = ref('')
+const scanInput    = ref('')
+const scanError    = ref('')
+const scanResolving = ref(false)
 
 // ── Filter GI by search ────────────────────────────────────────────────────
 const filteredGis = computed(() => {
@@ -38,31 +40,32 @@ const filteredGrs = computed(() => {
 
 const hasAny = computed(() => filteredGis.value.length > 0 || filteredGrs.value.length > 0)
 
-// ── Navigate by barcode (GI / GR / Rack code) ─────────────────────────────
-function navigate(barcode) {
+// ── Navigate by barcode (GI / GR / Rack / Warehouse code) ─────────────────
+async function navigate(barcode) {
     const code = barcode.trim()
     if (!code) return
-
-    // GI assigned to this operator
-    const gi = (props.gis ?? []).find(g => g.gi_number === code)
-    if (gi) {
-        router.visit(route('operator.scan-detail', gi.id))
-        return
+    scanError.value = ''
+    scanResolving.value = true
+    try {
+        const res  = await fetch(`/operator/scan/resolve?code=${encodeURIComponent(code)}`)
+        const data = await res.json()
+        if (data.type === 'not_found') {
+            scanError.value = `"${code}" tidak ditemukan.`
+            return
+        }
+        router.visit(data.url)
+    } catch {
+        scanError.value = 'Gagal menghubungi server. Periksa koneksi.'
+    } finally {
+        scanResolving.value = false
     }
-    // GR assigned to this operator
-    const gr = (props.grs ?? []).find(g => g.gr_number === code)
-    if (gr) {
-        router.visit(route('gr.show', gr.id))
-        return
-    }
-    // Try as rack/location code — navigate directly to rack view
-    router.visit('/rack/' + encodeURIComponent(code))
 }
 
 // ── Text barcode scan (hardware scanner → Enter) ───────────────────────────
 function handleScan() {
     const barcode = scanInput.value.trim()
     if (!barcode) return
+    scanError.value = ''
     navigate(barcode)
     scanInput.value = ''
 }
@@ -185,6 +188,8 @@ function itemName(variant) {
         <button type="button" class="op-scan-go" @click="handleScan">→</button>
       </div>
       <span class="op-scan-hint">{{ $t('operator.scanHint') }}</span>
+      <p v-if="scanResolving" class="op-scan-resolving">Mencari...</p>
+      <p v-if="scanError" class="op-scan-error">⚠ {{ scanError }}</p>
     </div>
 
     <!-- Search filter -->
@@ -406,6 +411,17 @@ function itemName(variant) {
 .op-scan-hint {
   font-size: 11px;
   color: var(--fg-2);
+}
+.op-scan-error {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ef4444;
+  margin: 0;
+}
+.op-scan-resolving {
+  font-size: 12px;
+  color: var(--fg-2);
+  margin: 0;
 }
 
 .op-filter-card {

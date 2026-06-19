@@ -46,9 +46,10 @@ class AuthenticatedSessionController extends Controller
         }
 
         // Everyone else (wh_admin, super_admin, etc.) → normal dashboard
-        // If a wh_admin also has operator access, they still land on the dashboard
-        // and can navigate to the operator portal via the sidebar menu.
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Clear any stored intended URL to prevent 'Access denied.' flash when a
+        // role-restricted URL was stored before logout.
+        $request->session()->forget('url.intended');
+        return redirect()->route('dashboard');
     }
 
     /**

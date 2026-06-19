@@ -8,8 +8,11 @@ use App\Models\GoodsIssue;
 use App\Models\GoodsIssueItem;
 use App\Models\GoodsIssuePhoto;
 use App\Models\GoodsReceipt;
+use App\Models\Location;
 use App\Models\StockLedger;
+use App\Models\Warehouse;
 use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -308,6 +311,64 @@ class OperatorController extends Controller
         return redirect()
             ->route('operator.scan-list')
             ->with('success', "GI {$goodsIssue->gi_number} completed — items handed over!");
+    }
+
+    // ── Resolve barcode: GI / GR / location / warehouse ───────────────────────
+
+    public function resolveBarcode(Request $request): JsonResponse
+    {
+        $this->authorizeOp($request);
+
+        $user = $request->user();
+        $code = strtoupper(trim($request->input('code', '')));
+
+        if (!$code) {
+            return response()->json(['type' => 'not_found']);
+        }
+
+        // GI assigned to this operator
+        $gi = GoodsIssue::where('gi_number', $code)
+            ->where('assigned_to', $user->id)
+            ->whereIn('status', ['assigned', 'in_picking', 'ready_to_pickup'])
+            ->first();
+        if ($gi) {
+            return response()->json([
+                'type' => 'gi',
+                'url'  => route('operator.scan-detail', $gi->id),
+            ]);
+        }
+
+        // GR assigned to this operator
+        $gr = GoodsReceipt::where('gr_number', $code)
+            ->where('assigned_to', $user->id)
+            ->where('status', 'assigned')
+            ->first();
+        if ($gr) {
+            return response()->json([
+                'type' => 'gr',
+                'url'  => route('gr.show', $gr->id),
+            ]);
+        }
+
+        // Location / rack code
+        $location = Location::where('code', $code)->where('is_active', true)->first();
+        if ($location) {
+            return response()->json([
+                'type' => 'rack',
+                'url'  => '/rack/' . $code,
+            ]);
+        }
+
+        // Warehouse code
+        $warehouse = Warehouse::where('code', $code)->where('is_active', true)->first();
+        if ($warehouse) {
+            return response()->json([
+                'type' => 'warehouse',
+                'url'  => '/warehouse/' . $code,
+            ]);
+        }
+
+        return response()->json(['type' => 'not_found']);
     }
 
     // ── History: completed/rejected GIs handled by this operator ──────────────
